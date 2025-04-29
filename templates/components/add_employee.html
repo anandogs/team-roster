@@ -1,0 +1,248 @@
+<!-- Add Employee Form Component -->
+<div 
+    x-data="{
+        selectedEmployee: null,
+        fte: 0.5,
+        location: 'Onsite',
+        isBillable: true,
+        searchQuery: '',
+        showDropdown: false,
+        filteredEmployees: [],
+        errors: {},
+        
+        init() {
+            this.filterEmployees();
+            this.$watch('searchQuery', () => {
+                this.filterEmployees();
+            });
+
+            // Listen for employee updates
+            window.addEventListener('employees-updated', () => {
+                this.filterEmployees();
+                if (this.selectedEmployee) {
+                    // Check if selected employee is still available
+                    const stillAvailable = $store.employees.getAvailableEmployees()
+                        .some(emp => emp.id === this.selectedEmployee.id);
+                    if (!stillAvailable) {
+                        this.selectedEmployee = null;
+                    }
+                }
+            });
+        },
+
+        filterEmployees() {
+            const available = $store.employees.getAvailableEmployees();
+            console.log('Available employees:', available);
+            
+            if (!this.searchQuery) {
+                this.filteredEmployees = available;
+                return;
+            }
+            
+            const query = this.searchQuery.toLowerCase();
+            this.filteredEmployees = available.filter(emp => {
+                const searchStr = `${emp.name} ${emp.band} ${emp.customer}`.toLowerCase();
+                return searchStr.includes(query);
+            });
+        },
+
+        selectEmployee(employee) {
+            console.log('Selecting employee:', employee);
+            this.selectedEmployee = employee;
+            this.showDropdown = false;
+        },
+
+        validateForm() {
+            const errors = {};
+            
+            if (!this.selectedEmployee) {
+                errors.employee = 'Please select an employee';
+            }
+            
+            if (this.fte < 0 || this.fte > 1) {
+                errors.fte = 'FTE must be between 0 and 1';
+            }
+            
+            if (!this.location) {
+                errors.location = 'Please select a location';
+            }
+
+            this.errors = errors;
+            return Object.keys(errors).length === 0;
+        },
+
+        handleSubmit() {
+            if (!this.validateForm()) return;
+
+            console.log('Submitting form:', {
+                employee: this.selectedEmployee,
+                fte: this.fte,
+                location: this.location,
+                isBillable: this.isBillable
+            });
+
+            // Add to roster using global state
+            $store.employees.addToRoster(
+                this.selectedEmployee,
+                this.fte,
+                this.location,
+                this.isBillable
+            );
+
+            // Show success message
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: {
+                    title: 'Employee Added',
+                    description: `${this.selectedEmployee.name} has been added to your roster with ${this.fte} FTE.`,
+                    type: 'success'
+                }
+            }));
+
+            // Reset form
+            this.selectedEmployee = null;
+            this.fte = 0.5;
+            this.location = 'Onsite';
+            this.isBillable = true;
+            this.searchQuery = '';
+            this.filterEmployees();
+        }
+    }"
+    class="space-y-6"
+>
+    <!-- Employee Selection -->
+    <div class="space-y-2">
+        <label class="block text-sm font-medium text-neutral-200">
+            Employee
+            <span class="text-red-500">*</span>
+        </label>
+        <div class="relative">
+            <input
+                type="text"
+                x-model="searchQuery"
+                @focus="showDropdown = true"
+                @click.away="showDropdown = false"
+                placeholder="Search by name, band, or customer..."
+                class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                :class="{ 'border-red-500': errors.employee }"
+            >
+            <div
+                x-show="showDropdown && filteredEmployees.length > 0"
+                x-cloak
+                class="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg max-h-60 overflow-auto"
+            >
+                <template x-for="employee in filteredEmployees" :key="employee.id">
+                    <button
+                        @click="selectEmployee(employee)"
+                        class="w-full px-4 py-2 text-left hover:bg-neutral-700 focus:outline-none focus:bg-neutral-700"
+                    >
+                        <div class="flex flex-col">
+                            <span x-text="employee.name" class="font-medium text-white"></span>
+                            <span class="text-sm text-neutral-400">
+                                <span x-text="employee.band"></span> • 
+                                <span x-text="employee.customer"></span>
+                            </span>
+                        </div>
+                    </button>
+                </template>
+            </div>
+        </div>
+        <div x-show="selectedEmployee" class="p-3 bg-neutral-800 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 x-text="selectedEmployee?.name" class="font-medium text-white"></h3>
+                    <p class="text-sm text-neutral-400">
+                        <span x-text="selectedEmployee?.band"></span> • 
+                        <span x-text="selectedEmployee?.customer"></span>
+                    </p>
+                </div>
+                <button
+                    @click="selectedEmployee = null"
+                    class="text-neutral-400 hover:text-white"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <p x-show="errors.employee" x-text="errors.employee" class="text-sm text-red-500"></p>
+    </div>
+
+    <!-- FTE Input -->
+    <div class="space-y-2">
+        <label class="block text-sm font-medium text-neutral-200">
+            FTE for <span x-text="new Date().toLocaleString('default', { month: 'long' })"></span>
+            <span class="text-red-500">*</span>
+        </label>
+        <input
+            type="number"
+            x-model="fte"
+            step="0.1"
+            min="0"
+            max="1"
+            class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :class="{ 'border-red-500': errors.fte }"
+        >
+        <p x-show="errors.fte" x-text="errors.fte" class="text-sm text-red-500"></p>
+    </div>
+
+    <!-- Location Selection -->
+    <div class="space-y-2">
+        <label class="block text-sm font-medium text-neutral-200">
+            Location
+            <span class="text-red-500">*</span>
+        </label>
+        <select
+            x-model="location"
+            class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :class="{ 'border-red-500': errors.location }"
+        >
+            <option value="Onsite">Onsite</option>
+            <option value="Offshore">Offshore</option>
+        </select>
+        <p x-show="errors.location" x-text="errors.location" class="text-sm text-red-500"></p>
+    </div>
+
+    <!-- Billable Toggle -->
+    <div class="flex items-center justify-between">
+        <label class="text-sm font-medium text-neutral-200">Billable</label>
+        <button
+            type="button"
+            @click="isBillable = !isBillable"
+            :class="isBillable ? 'bg-blue-600' : 'bg-neutral-700'"
+            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+            <span
+                :class="isBillable ? 'translate-x-5' : 'translate-x-0'"
+                class="pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            >
+                <span
+                    :class="isBillable ? 'opacity-0 duration-100 ease-out' : 'opacity-100 duration-200 ease-in'"
+                    class="absolute inset-0 flex h-full w-full items-center justify-center transition-opacity"
+                >
+                    <svg class="h-3 w-3 text-neutral-400" fill="none" viewBox="0 0 12 12">
+                        <path d="M4 8l2-2m0 0l2-2M6 6L4 4m2 2l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <span
+                    :class="isBillable ? 'opacity-100 duration-200 ease-in' : 'opacity-0 duration-100 ease-out'"
+                    class="absolute inset-0 flex h-full w-full items-center justify-center transition-opacity"
+                >
+                    <svg class="h-3 w-3 text-blue-600" fill="currentColor" viewBox="0 0 12 12">
+                        <path d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414-1.414zM5 8l-.707.707a1 1 0 001.414 0L5 8zm4.707-3.293a1 1 0 00-1.414-1.414l1.414 1.414zm-7.414 2l2 2 1.414-1.414-2-2-1.414 1.414zm3.414 2l4-4-1.414-1.414-4 4 1.414 1.414z"/>
+                    </svg>
+                </span>
+            </span>
+        </button>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="pt-4">
+        <button
+            @click="handleSubmit"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+            Add to Roster
+        </button>
+    </div>
+</div> 

@@ -1,0 +1,209 @@
+<!-- Roster Table Component -->
+<div
+    x-data="{
+        searchQuery: '',
+        editingEmployee: null,
+        tempFte: null,
+
+        init() {
+            // Listen for employee updates
+            window.addEventListener('employees-updated', () => {
+                this.filterEmployees();
+            });
+        },
+
+        get isLoading() {
+            return $store.employees.loading;
+        },
+
+        get filteredEmployees() {
+            const roster = [...$store.employees.rosterEmployees, ...$store.employees.newHires];
+            if (!this.searchQuery) return roster;
+            
+            const query = this.searchQuery.toLowerCase();
+            return roster.filter(emp => {
+                const searchStr = `${emp.name} ${emp.band} ${emp.customer || 'New Hire'}`.toLowerCase();
+                return searchStr.includes(query);
+            });
+        },
+
+        startEdit(employee) {
+            this.editingEmployee = employee.id;
+            this.tempFte = employee.fte;
+        },
+
+        cancelEdit() {
+            this.editingEmployee = null;
+            this.tempFte = null;
+        },
+
+        saveFteEdit(employee) {
+            if (this.tempFte < 0 || this.tempFte > 1) {
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: {
+                        title: 'Invalid FTE',
+                        description: 'FTE must be between 0 and 1',
+                        type: 'error'
+                    }
+                }));
+                return;
+            }
+
+            const index = $store.employees.rosterEmployees.findIndex(emp => emp.id === employee.id);
+            if (index !== -1) {
+                $store.employees.rosterEmployees[index] = {
+                    ...$store.employees.rosterEmployees[index],
+                    fte: parseFloat(this.tempFte)
+                };
+                $store.employees.notifyStateChange();
+            }
+
+            this.editingEmployee = null;
+            this.tempFte = null;
+
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: {
+                    title: 'FTE Updated',
+                    description: `${employee.name}'s FTE has been updated to ${this.tempFte}`,
+                    type: 'success'
+                }
+            }));
+        },
+
+        removeEmployee(employee) {
+            if (!confirm(`Are you sure you want to remove ${employee.name} from the roster?`)) {
+                return;
+            }
+
+            if (employee.id.startsWith('newhire')) {
+                $store.employees.newHires = $store.employees.newHires.filter(emp => emp.id !== employee.id);
+            } else {
+                $store.employees.removeFromRoster(employee.id);
+            }
+
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: {
+                    title: 'Employee Removed',
+                    description: `${employee.name} has been removed from the roster.`,
+                    type: 'success'
+                }
+            }));
+        }
+    }"
+    class="space-y-4"
+>
+    <!-- Loading State -->
+    <template x-if="isLoading">
+        <div class="text-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+            <p class="mt-4 text-neutral-400">Loading roster data...</p>
+        </div>
+    </template>
+
+    <!-- Roster Table -->
+    <template x-if="!isLoading">
+        <div>
+            <!-- Search Input -->
+            <div class="relative mb-4">
+                <input
+                    type="text"
+                    x-model="searchQuery"
+                    placeholder="Search roster by name, band, or customer..."
+                    class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-neutral-800">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Name</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Band</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Customer</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">BU</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Location</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Billable</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">FTE</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-neutral-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-neutral-800">
+                        <template x-if="filteredEmployees.length === 0">
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-neutral-400">
+                                    No employees found in the roster.
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="employee in filteredEmployees" :key="employee.id">
+                            <tr :class="{ 'bg-neutral-800/50': employee.id.startsWith('newhire') }">
+                                <td class="px-4 py-2 whitespace-nowrap" x-text="employee.name"></td>
+                                <td class="px-4 py-2 whitespace-nowrap" x-text="employee.band"></td>
+                                <td class="px-4 py-2 whitespace-nowrap" x-text="employee.customer || 'New Hire'"></td>
+                                <td class="px-4 py-2 whitespace-nowrap" x-text="employee.businessUnit || '-'"></td>
+                                <td class="px-4 py-2 whitespace-nowrap" x-text="employee.location"></td>
+                                <td class="px-4 py-2">
+                                    <span
+                                        class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium"
+                                        :class="employee.isBillable ? 'bg-green-500/10 text-green-400' : 'bg-neutral-500/10 text-neutral-400'"
+                                    >
+                                        <span class="h-1.5 w-1.5 rounded-full mr-1.5"
+                                            :class="employee.isBillable ? 'bg-green-400' : 'bg-neutral-400'"></span>
+                                        <span x-text="employee.isBillable ? 'Yes' : 'No'"></span>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2">
+                                    <template x-if="editingEmployee === employee.id">
+                                        <div class="flex items-center space-x-2">
+                                            <input
+                                                type="number"
+                                                x-model="tempFte"
+                                                step="0.1"
+                                                min="0"
+                                                max="1"
+                                                class="w-20 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm"
+                                            >
+                                            <button
+                                                @click="saveFteEdit(employee)"
+                                                class="p-1 text-green-400 hover:text-green-300"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                </svg>
+                                            </button>
+                                            <button
+                                                @click="cancelEdit()"
+                                                class="p-1 text-red-400 hover:text-red-300"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="editingEmployee !== employee.id">
+                                        <button
+                                            @click="startEdit(employee)"
+                                            class="hover:text-blue-400"
+                                            x-text="(employee.fte || employee.fteQuarter || 0).toFixed(1)"
+                                        ></button>
+                                    </template>
+                                </td>
+                                <td class="px-4 py-2">
+                                    <button
+                                        @click="removeEmployee(employee)"
+                                        class="p-1 text-red-400 hover:text-red-300"
+                                        title="Remove from roster"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+</div> 

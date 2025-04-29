@@ -1,0 +1,221 @@
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block head
+%}
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+></script>
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.store("employees", {
+      totalEmployees: [],
+      rosterEmployees: [],
+      newHires: [],
+      loading: true,
+
+
+
+      async init() {
+        this.loading = true;
+        await Promise.all([
+          this.loadTotalEmployees(),
+          this.loadRosterEmployees(),
+        ]);
+        this.loading = false;
+        this.notifyStateChange();
+        console.log(this.rosterEmployees);
+      },
+
+      filterEmployees() {
+        console.log("filterEmployees");
+      },
+
+      async loadTotalEmployees() {
+        try {
+          const response = await fetch("/api/total-employees");
+          this.totalEmployees = await response.json();
+        } catch (e) {
+          this.totalEmployees = [];
+        }
+      },
+      async loadRosterEmployees() {
+        try {
+          const response = await fetch("/api/employees");
+          this.rosterEmployees = await response.json();
+        } catch (e) {
+          this.rosterEmployees = [];
+        }
+      },
+
+      getAvailableEmployees() {
+        const rosterIds = new Set([
+          ...this.rosterEmployees.map((emp) => emp.id),
+          ...this.newHires.map((emp) => emp.id),
+        ]);
+        return this.totalEmployees.filter((emp) => !rosterIds.has(emp.id));
+      },
+
+      addToRoster(employee, fte, location, isBillable) {
+        console.log("Adding to roster:", employee);
+        const rosterEmployee = {
+          ...employee,
+          fte: parseFloat(fte),
+          fteQuarter: parseFloat(fte),
+          location,
+          isBillable,
+          addedAt: new Date().toISOString(),
+        };
+
+        this.rosterEmployees.push(rosterEmployee);
+        this.notifyStateChange();
+      },
+
+      removeFromRoster(employeeId) {
+        console.log("Removing from roster:", employeeId);
+        this.rosterEmployees = this.rosterEmployees.filter(
+          (emp) => emp.id !== employeeId
+        );
+        this.notifyStateChange();
+      },
+
+      addNewHire(newHire) {
+        const id = `newhire${this.newHires.length + 1}`;
+        this.newHires.push({ ...newHire, id });
+        this.notifyStateChange();
+      },
+
+      notifyStateChange() {
+        window.dispatchEvent(new CustomEvent("employees-updated"));
+      },
+    });
+  });
+
+  // Initialize store when Alpine is ready
+  document.addEventListener("alpine:initialized", () => {
+    console.log("Alpine.js initialized");
+    Alpine.store("employees").init();
+  });
+</script>
+{% endblock %} {% block filter_bar %} {% include 'components/filter_bar.html' %}
+{% endblock %} {% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">Team Roster Management</h1>
+    <p class="text-neutral-400">
+      Manage your team roster and track gross margin.
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div x-data="{ activeTab: 'roster' }">
+    <div
+      class="grid w-full grid-cols-4 bg-neutral-800 rounded-t-lg overflow-hidden"
+      id="tabs-list"
+    >
+      <button
+        @click="activeTab = 'roster'"
+        :class="{ 'bg-neutral-900 text-white': activeTab === 'roster', 'text-neutral-400': activeTab !== 'roster' }"
+        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
+      >
+        Current Roster
+      </button>
+      <button
+        @click="activeTab = 'add-employee'"
+        :class="{ 'bg-neutral-900 text-white': activeTab === 'add-employee', 'text-neutral-400': activeTab !== 'add-employee' }"
+        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
+      >
+        Add Existing Employee
+      </button>
+      <button
+        @click="activeTab = 'new-hire'"
+        :class="{ 'bg-neutral-900 text-white': activeTab === 'new-hire', 'text-neutral-400': activeTab !== 'new-hire' }"
+        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
+      >
+        Add New Hire
+      </button>
+      <button
+        @click="activeTab = 'direct-costs'"
+        :class="{ 'bg-neutral-900 text-white': activeTab === 'direct-costs', 'text-neutral-400': activeTab !== 'direct-costs' }"
+        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
+      >
+        Other Direct Costs
+      </button>
+    </div>
+
+    <div
+      class="bg-neutral-900 border-t-0 border border-neutral-800 rounded-b-lg p-4"
+    >
+      <!-- Roster Tab -->
+      <div x-show="activeTab === 'roster'" x-cloak>
+        {% include 'components/roster_table.html' %}
+      </div>
+
+      <!-- Add Employee Tab -->
+      <div x-show="activeTab === 'add-employee'" x-cloak>
+        <h2 class="text-xl font-bold mb-2">Add Existing Employee</h2>
+        <p class="text-neutral-400 mb-4">
+          Add an employee from the existing company pool to your roster.
+        </p>
+        {% include 'components/add_employee.html' %}
+      </div>
+
+      <!-- New Hire Tab -->
+      <div x-show="activeTab === 'new-hire'" x-cloak>
+        <h2 class="text-xl font-bold mb-2">Add New Hire</h2>
+        <p class="text-neutral-400 mb-4">
+          Create a new hire position by specifying band and FTE.
+        </p>
+        <div id="new-hire-form"></div>
+      </div>
+
+      <!-- Direct Costs Tab -->
+      <div x-show="activeTab === 'direct-costs'" x-cloak>
+        <h2 class="text-xl font-bold mb-2">Other Direct Costs</h2>
+        <p class="text-neutral-400 mb-4">
+          Add and manage direct costs that impact gross margin.
+        </p>
+        <div id="direct-costs-form"></div>
+        <div id="direct-costs-table" class="mt-6"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toast notification handler
+  window.addEventListener("show-toast", (event) => {
+    const { title, description, type = "success" } = event.detail;
+
+    const toast = document.createElement("div");
+    toast.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
+      type === "success" ? "bg-green-600" : "bg-red-600"
+    } text-white z-50 transition-opacity duration-500`;
+
+    toast.innerHTML = `
+    <div class="flex items-center space-x-2">
+      <div class="flex-1">
+        <h3 class="font-medium">${title}</h3>
+        <p class="text-sm opacity-90">${description}</p>
+      </div>
+      <button class="opacity-70 hover:opacity-100" onclick="this.parentElement.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => toast.remove(), 500);
+    }, 5000);
+  });
+
+  window.addEventListener("employees-updated", () => {
+    this.filterEmployees();
+    // ...other logic
+  });
+</script>
+{% endblock %} {% block sidebar %} {% include 'components/gm_summary.html' %} {%
+endblock %}

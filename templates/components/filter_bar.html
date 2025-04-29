@@ -1,0 +1,484 @@
+<div class="border-b border-neutral-800 bg-neutral-900 px-6 py-3">
+  <div class="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0">
+    <div class="flex items-center space-x-2">
+      <div class="rounded-md bg-neutral-800 px-3 py-1.5">
+        <span class="text-sm font-medium text-neutral-300">Quarter:</span>
+        <span class="font-bold text-white">Q1FY2026</span>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <!-- Month Selector -->
+      <div class="flex items-center">
+        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          <button
+            class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
+            @click="open = !open"
+          >
+            <span id="month-display" class="truncate">Quarter</span>
+            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none;"
+            class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
+          >
+            <div class="max-h-60 overflow-auto">
+              <div class="space-y-1">
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectMonth('Quarter')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Quarter
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectMonth('April')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  April
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectMonth('May')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  May
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectMonth('June')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  June
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Business Unit Selector -->
+      <div class="flex items-center">
+        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          <button
+            class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
+            @click="open = !open"
+          >
+            <span id="bu-display" class="truncate">BU</span>
+            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none;"
+            class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
+          >
+            <div class="max-h-60 overflow-auto">
+              <div class="space-y-1" id="bu-options">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          id="clear-bu"
+          class="ml-1 hidden h-8 w-8 text-neutral-400 hover:text-white"
+          onclick="clearBusinessUnit()"
+          title="Clear business unit filter"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Customer Selector -->
+      <div class="flex items-center">
+        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          <button
+            id="customer-button"
+            class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
+            @click="open = !open"
+            disabled
+          >
+            <span id="customer-display" class="truncate">Customer</span>
+            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none;"
+            class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
+          >
+            <div class="max-h-60 overflow-auto">
+              <div class="space-y-1" id="customer-options">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          id="clear-customer"
+          class="ml-1 hidden h-8 w-8 text-neutral-400 hover:text-white"
+          onclick="clearCustomer()"
+          title="Clear customer filter"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Location Selector -->
+      <div class="flex items-center">
+        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          <button
+            class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
+            @click="open = !open"
+          >
+            <span id="location-display" class="truncate">Locations</span>
+            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none;"
+            class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
+          >
+            <div class="max-h-60 overflow-auto">
+              <div class="space-y-1">
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectLocation('All')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  All
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectLocation('Onsite')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Onsite
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectLocation('Offshore')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Offshore
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          id="clear-location"
+          class="ml-1 hidden h-8 w-8 text-neutral-400 hover:text-white"
+          onclick="clearLocation()"
+          title="Clear location filter"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Billable Status Selector -->
+      <div class="flex items-center">
+        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+          <button
+            class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
+            @click="open = !open"
+          >
+            <span id="billable-display" class="truncate">Billability</span>
+            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none;"
+            class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
+          >
+            <div class="max-h-60 overflow-auto">
+              <div class="space-y-1">
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectBillableStatus('All')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  All
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectBillableStatus('Billable')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Billable
+                </button>
+                <button
+                  class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+                  @click="open = false"
+                  onclick="selectBillableStatus('Non-Billable')"
+                >
+                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Non-Billable
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          id="clear-billable"
+          class="ml-1 hidden h-8 w-8 text-neutral-400 hover:text-white"
+          onclick="clearBillableStatus()"
+          title="Clear billable status filter"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6L6 18M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    console.log('Alpine.js initialized');
+});
+
+// State management
+let state = {
+  month: 'Quarter',
+  businessUnit: '',
+  customer: '',
+  location: 'All',
+  billableStatus: 'All',
+  businessUnits: [],
+  customers: {}
+};
+
+// Initialize the filter bar
+async function initializeFilterBar() {
+  // Fetch business units
+  const response = await fetch('/api/filter-state');
+  const data = await response.json();
+  state.businessUnits = data.businessUnits;
+  
+  // Populate business unit options
+  const buOptions = document.getElementById('bu-options');
+  buOptions.innerHTML = state.businessUnits.map(bu => `
+    <button
+      class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+      @click="open = false"
+      onclick="selectBusinessUnit('${bu}')"
+    >
+      <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ${bu}
+    </button>
+  `).join('');
+}
+
+// Toggle popover visibility
+function togglePopover(id) {
+  const popover = document.getElementById(id);
+  popover.classList.toggle('hidden');
+}
+
+// Close all popovers when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.relative')) {
+    document.querySelectorAll('[id$="-popover"]').forEach(popover => {
+      popover.classList.add('hidden');
+    });
+  }
+});
+
+// Selection handlers
+function selectMonth(month) {
+  state.month = month;
+  document.getElementById('month-display').textContent = month;
+  document.getElementById('month-popover').classList.add('hidden');
+  updateFilters();
+}
+
+function selectBusinessUnit(bu) {
+  state.businessUnit = bu;
+  document.getElementById('bu-display').textContent = bu;
+  document.getElementById('bu-popover').classList.add('hidden');
+  document.getElementById('clear-bu').classList.remove('hidden');
+  document.getElementById('customer-button').disabled = false;
+  
+  // Fetch customers for this BU
+  fetch(`/api/customers/${bu}`)
+    .then(res => res.json())
+    .then(customers => {
+      state.customers[bu] = customers;
+      updateCustomerOptions();
+    });
+  
+  updateFilters();
+}
+
+function selectCustomer(customer) {
+  state.customer = customer;
+  document.getElementById('customer-display').textContent = customer;
+  document.getElementById('customer-popover').classList.add('hidden');
+  document.getElementById('clear-customer').classList.remove('hidden');
+  updateFilters();
+}
+
+function selectLocation(location) {
+  state.location = location;
+  document.getElementById('location-display').textContent = location;
+  document.getElementById('location-popover').classList.add('hidden');
+  if (location !== 'All') {
+    document.getElementById('clear-location').classList.remove('hidden');
+  } else {
+    document.getElementById('clear-location').classList.add('hidden');
+  }
+  updateFilters();
+}
+
+function selectBillableStatus(status) {
+  state.billableStatus = status;
+  document.getElementById('billable-display').textContent = status;
+  document.getElementById('billable-popover').classList.add('hidden');
+  if (status !== 'All') {
+    document.getElementById('clear-billable').classList.remove('hidden');
+  } else {
+    document.getElementById('clear-billable').classList.add('hidden');
+  }
+  updateFilters();
+}
+
+// Clear handlers
+function clearBusinessUnit() {
+  state.businessUnit = '';
+  document.getElementById('bu-display').textContent = 'Select BU';
+  document.getElementById('clear-bu').classList.add('hidden');
+  clearCustomer();
+  updateFilters();
+}
+
+function clearCustomer() {
+  state.customer = '';
+  document.getElementById('customer-display').textContent = 'Select Customer';
+  document.getElementById('clear-customer').classList.add('hidden');
+  document.getElementById('customer-button').disabled = true;
+  updateFilters();
+}
+
+function clearLocation() {
+  state.location = 'All';
+  document.getElementById('location-display').textContent = 'All Locations';
+  document.getElementById('clear-location').classList.add('hidden');
+  updateFilters();
+}
+
+function clearBillableStatus() {
+  state.billableStatus = 'All';
+  document.getElementById('billable-display').textContent = 'All';
+  document.getElementById('clear-billable').classList.add('hidden');
+  updateFilters();
+}
+
+// Update customer options based on selected business unit
+function updateCustomerOptions() {
+  const customerOptions = document.getElementById('customer-options');
+  const customers = state.customers[state.businessUnit] || [];
+  
+  customerOptions.innerHTML = customers.map(customer => `
+    <button
+      class="w-full flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm"
+      onclick="selectCustomer('${customer}')"
+    >
+      <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ${customer}
+    </button>
+  `).join('');
+}
+
+// Update all filters and refresh data
+function updateFilters() {
+  const queryParams = new URLSearchParams({
+    month: state.month,
+    businessUnit: state.businessUnit,
+    customer: state.customer,
+    location: state.location,
+    billableStatus: state.billableStatus
+  });
+  
+  // Update GM summary
+  fetch(`/api/gm-state?${queryParams}`)
+    .then(res => res.json())
+    .then(data => {
+      // Update GM summary component
+      if (typeof updateGMSummary === 'function') {
+        updateGMSummary();
+      }
+    });
+  
+  // Update roster table
+  fetch(`/api/employees?${queryParams}`)
+    .then(res => res.json())
+    .then(data => {
+      // Update roster table component
+      if (typeof loadRosterTable === 'function') {
+        loadRosterTable();
+      }
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initializeFilterBar);
+</script> 
