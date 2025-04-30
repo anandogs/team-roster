@@ -98,7 +98,7 @@
 {% endblock %} {% block filter_bar %} {% include 'components/filter_bar.html' %}
 {% endblock %} {% block content %}
 <div class="space-y-6">
-  <div>
+  <div class="mt-4">
     <h1 class="text-2xl font-bold tracking-tight">Team Roster Management</h1>
     <p class="text-neutral-400">
       Manage your team roster and track gross margin.
@@ -164,7 +164,7 @@
         <p class="text-neutral-400 mb-4">
           Create a new hire position by specifying band and FTE.
         </p>
-        <div id="new-hire-form"></div>
+        {% include 'components/new_hire_form.html' %}
       </div>
 
       <!-- Direct Costs Tab -->
@@ -173,8 +173,9 @@
         <p class="text-neutral-400 mb-4">
           Add and manage direct costs that impact gross margin.
         </p>
-        <div id="direct-costs-form"></div>
+        
         <div id="direct-costs-table" class="mt-6"></div>
+        {% include 'components/direct_costs_form.html' %}
       </div>
     </div>
   </div>

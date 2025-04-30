@@ -1,0 +1,263 @@
+<!-- Direct Costs Form Component -->
+<div x-data="directCostsForm()" class="space-y-6 p-4">
+    <form @submit.prevent="submitForm" class="space-y-6">
+        <!-- Cost Name Input -->
+        <div class="space-y-2">
+            <label class="text-neutral-300">Cost Name</label>
+            <input 
+                type="text" 
+                x-model="formData.name" 
+                placeholder="e.g., Hardware, Software Licenses, etc."
+                class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 text-white rounded-md"
+            >
+            <p class="text-sm text-neutral-500">Enter a descriptive name for this direct cost.</p>
+            <p x-show="errors.name" x-text="errors.name" class="text-sm text-red-500"></p>
+        </div>
+
+        <!-- Cost Percentage Input -->
+        <div class="space-y-2">
+            <label class="text-neutral-300">Cost Percentage</label>
+            <div class="relative">
+                <input 
+                    type="number" 
+                    x-model="formData.percentage" 
+                    step="0.1" 
+                    min="0.1" 
+                    max="100"
+                    class="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 text-white rounded-md pr-8"
+                >
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">%</span>
+            </div>
+            <p class="text-sm text-neutral-500">Enter the percentage of revenue this cost represents.</p>
+            <p x-show="errors.percentage" x-text="errors.percentage" class="text-sm text-red-500"></p>
+        </div>
+
+        <!-- Cost Level Selection -->
+        <div class="flex flex-col space-y-2">
+            <label class="text-neutral-300">Cost Level</label>
+            <div class="relative">
+                <button 
+                    type="button"
+                    @click="levelOpen = !levelOpen"
+                    class="w-full flex justify-between items-center px-3 py-2 border border-neutral-700 bg-neutral-800 text-white hover:bg-neutral-700 rounded-md"
+                >
+                    <span x-text="formData.level || 'Select level...'"></span>
+                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <!-- Level Dropdown -->
+                <div 
+                    x-show="levelOpen" 
+                    @click.away="levelOpen = false"
+                    class="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md shadow-lg"
+                >
+                    <div class="py-1">
+                        <template x-for="level in ['Overall', 'Business Unit', 'Customer']" :key="level">
+                            <button 
+                                type="button"
+                                @click="selectLevel(level)"
+                                class="w-full px-3 py-2 text-left hover:bg-neutral-700 flex items-center"
+                            >
+                                <span x-show="formData.level === level" class="mr-2">✓</span>
+                                <span x-text="level"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <p class="text-sm text-neutral-500">Select whether this cost applies overall, to a specific business unit, or to a specific customer.</p>
+            <p x-show="errors.level" x-text="errors.level" class="text-sm text-red-500"></p>
+        </div>
+
+        <!-- Business Unit Selection (Conditional) -->
+        <template x-if="formData.level === 'Business Unit' || formData.level === 'Customer'">
+            <div class="flex flex-col space-y-2">
+                <label class="text-neutral-300">Business Unit</label>
+                <div class="relative">
+                    <button 
+                        type="button"
+                        @click="buOpen = !buOpen"
+                        class="w-full flex justify-between items-center px-3 py-2 border border-neutral-700 bg-neutral-800 text-white hover:bg-neutral-700 rounded-md"
+                    >
+                        <span x-text="formData.businessUnit || 'Select business unit...'"></span>
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- Business Unit Dropdown -->
+                    <div 
+                        x-show="buOpen" 
+                        @click.away="buOpen = false"
+                        class="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md shadow-lg"
+                    >
+                        <div class="py-1">
+                            <template x-for="bu in businessUnits" :key="bu">
+                                <button 
+                                    type="button"
+                                    @click="selectBusinessUnit(bu)"
+                                    class="w-full px-3 py-2 text-left hover:bg-neutral-700 flex items-center"
+                                >
+                                    <span x-show="formData.businessUnit === bu" class="mr-2">✓</span>
+                                    <span x-text="bu"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-sm text-neutral-500">Select the business unit this cost applies to.</p>
+                <p x-show="errors.businessUnit" x-text="errors.businessUnit" class="text-sm text-red-500"></p>
+            </div>
+        </template>
+
+        <!-- Customer Selection (Conditional) -->
+        <template x-if="formData.level === 'Customer' && formData.businessUnit">
+            <div class="flex flex-col space-y-2">
+                <label class="text-neutral-300">Customer</label>
+                <div class="relative">
+                    <button 
+                        type="button"
+                        @click="customerOpen = !customerOpen"
+                        class="w-full flex justify-between items-center px-3 py-2 border border-neutral-700 bg-neutral-800 text-white hover:bg-neutral-700 rounded-md"
+                    >
+                        <span x-text="formData.customer || 'Select customer...'"></span>
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- Customer Dropdown -->
+                    <div 
+                        x-show="customerOpen" 
+                        @click.away="customerOpen = false"
+                        class="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md shadow-lg"
+                    >
+                        <div class="py-1">
+                            <template x-if="availableCustomers.length === 0">
+                                <p class="px-3 py-2 text-neutral-500">No customers found for this business unit.</p>
+                            </template>
+                            <template x-for="customer in availableCustomers" :key="customer">
+                                <button 
+                                    type="button"
+                                    @click="selectCustomer(customer)"
+                                    class="w-full px-3 py-2 text-left hover:bg-neutral-700 flex items-center"
+                                >
+                                    <span x-show="formData.customer === customer" class="mr-2">✓</span>
+                                    <span x-text="customer"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-sm text-neutral-500">Select the customer this cost applies to.</p>
+                <p x-show="errors.customer" x-text="errors.customer" class="text-sm text-red-500"></p>
+            </div>
+        </template>
+
+        <button 
+            type="submit"
+            class="w-full px-4 py-2 bg-neutral-100 text-black hover:bg-white rounded-md"
+        >
+            Add Direct Cost
+        </button>
+    </form>
+</div>
+
+<script>
+function directCostsForm() {
+    return {
+        levelOpen: false,
+        buOpen: false,
+        customerOpen: false,
+        errors: {},
+        formData: {
+            name: '',
+            percentage: 1,
+            level: 'Overall',
+            businessUnit: undefined,
+            customer: undefined
+        },
+        businessUnits: ['BU A', 'BU B', 'BU C'], // This should come from your global state
+        get availableCustomers() {
+            if (!this.formData.businessUnit) return [];
+            // This should use your getCustomersByBU function
+            return this.formData.businessUnit === 'BU A' 
+                ? ['Customer A', 'Customer B'] 
+                : ['Customer C', 'Customer D'];
+        },
+        selectLevel(level) {
+            this.formData.level = level;
+            this.levelOpen = false;
+            
+            // Reset dependent fields
+            if (level === 'Overall') {
+                this.formData.businessUnit = undefined;
+                this.formData.customer = undefined;
+            } else if (level === 'Business Unit') {
+                this.formData.customer = undefined;
+            }
+        },
+        selectBusinessUnit(bu) {
+            this.formData.businessUnit = bu;
+            this.formData.customer = undefined; // Reset customer when BU changes
+            this.buOpen = false;
+        },
+        selectCustomer(customer) {
+            this.formData.customer = customer;
+            this.customerOpen = false;
+        },
+        validateForm() {
+            this.errors = {};
+            
+            if (!this.formData.name) {
+                this.errors.name = 'Name is required';
+            }
+            
+            if (!this.formData.percentage || this.formData.percentage < 0.1 || this.formData.percentage > 100) {
+                this.errors.percentage = 'Percentage must be between 0.1% and 100%';
+            }
+            
+            if (!this.formData.level) {
+                this.errors.level = 'Please select a level';
+            }
+            
+            if (this.formData.level === 'Business Unit' && !this.formData.businessUnit) {
+                this.errors.businessUnit = 'Business Unit is required for this level';
+            }
+            
+            if (this.formData.level === 'Customer') {
+                if (!this.formData.businessUnit) {
+                    this.errors.businessUnit = 'Business Unit is required for Customer level';
+                }
+                if (!this.formData.customer) {
+                    this.errors.customer = 'Customer is required for this level';
+                }
+            }
+            
+            return Object.keys(this.errors).length === 0;
+        },
+        submitForm() {
+            if (!this.validateForm()) {
+                return;
+            }
+
+            // Dispatch event to add direct cost
+            window.dispatchEvent(new CustomEvent('add-direct-cost', { 
+                detail: { ...this.formData }
+            }));
+
+            // Reset form
+            this.formData = {
+                name: '',
+                percentage: 1,
+                level: 'Overall',
+                businessUnit: undefined,
+                customer: undefined
+            };
+            this.errors = {};
+        }
+    }
+}
+</script> 
