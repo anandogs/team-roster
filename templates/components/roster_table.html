@@ -195,7 +195,7 @@
 <button
   type="button"
   class="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
-  @click=""
+  @click="openAddEmployeeModal()"
   title="Add Employee"
   style="width: 40px; height: 40px; min-width: 40px;"
 >
@@ -431,6 +431,9 @@
     </div>
   </template>
 </div>
+
+{% include 'components/add_employee_modal.html' %}
+
 
 <script>
 // Roster filter functions

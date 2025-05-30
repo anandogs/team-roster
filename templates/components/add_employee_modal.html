@@ -1,0 +1,504 @@
+<!-- Add Employee Modal Component -->
+<div x-data="addEmployeeModal()" x-show="isOpen" x-cloak 
+     class="fixed inset-0 z-50 overflow-y-auto" 
+     @keydown.escape.window="closeModal()"
+     style="display: none;">
+  
+  <!-- Backdrop -->
+  <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+       @click="closeModal()"
+       x-show="isOpen"
+       x-transition:enter="ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+  </div>
+
+  <!-- Modal Container -->
+  <div class="flex min-h-full items-center justify-center p-4">
+    <!-- Modal Content -->
+    <div class="relative bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl max-w-lg w-full mx-auto"
+         x-show="isOpen"
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform scale-100"
+         x-transition:leave-end="opacity-0 transform scale-95">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-neutral-700">
+        <h3 class="text-xl font-semibold text-white">Add Employee to Roster</h3>
+        <button @click="closeModal()" 
+                class="text-neutral-400 hover:text-white transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6">
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-neutral-600 mb-6">
+          <button @click="activeTab = 'existing'" 
+                  class="flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+                  :class="activeTab === 'existing' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-400 hover:text-neutral-300'">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Select Existing Employee
+          </button>
+          <button @click="activeTab = 'newhire'" 
+                  class="flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+                  :class="activeTab === 'newhire' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-400 hover:text-neutral-300'">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+            </svg>
+            Add New Hire
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="min-h-[300px]">
+          <!-- Existing Employee Tab -->
+          <div x-show="activeTab === 'existing'" class="space-y-4">
+            <!-- Search Section -->
+            <div class="space-y-4">
+              <!-- Search Input -->
+              <div class="relative">
+                <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input
+                  type="text"
+                  x-model="searchQuery"
+                  @input="searchEmployees()"
+                  placeholder="Type at least 2 characters to search employees..."
+                  class="w-full pl-10 pr-4 py-2.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <!-- Loading indicator -->
+                <div x-show="isLoadingEmployees" class="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              </div>
+
+              <!-- Search Results Info -->
+              <div x-show="searchQuery.length >= 2" class="flex items-center justify-between text-sm">
+                <span class="text-neutral-400">
+                  <span x-text="searchQuery.length < 2 ? '' : `Showing ${Math.min(filteredEmployees.length, 50)} of ${filteredEmployees.length} employees`"></span>
+                </span>
+                <span x-show="selectedEmployees.length > 0" class="text-blue-400 font-medium">
+                  <span x-text="`${selectedEmployees.length} selected`"></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Employee Results -->
+            <div x-show="searchQuery.length >= 2" class="space-y-2">
+              <!-- No results -->
+              <template x-if="searchQuery.length >= 2 && filteredEmployees.length === 0 && !isLoadingEmployees">
+                <div class="text-center py-8">
+                  <svg class="mx-auto h-8 w-8 text-neutral-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  </svg>
+                  <p class="text-neutral-400">No employees found matching "<span x-text="searchQuery"></span>"</p>
+                </div>
+              </template>
+
+              <!-- Employee List -->
+              <template x-if="searchQuery.length >= 2 && filteredEmployees.length > 0">
+                <div class="max-h-64 overflow-y-auto border border-neutral-600 rounded-lg">
+                  <!-- Select All Option -->
+                  <div x-show="filteredEmployees.length > 0" class="sticky top-0 bg-neutral-700 border-b border-neutral-600 p-3">
+                    <label class="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        :checked="isAllVisibleSelected()"
+                        :indeterminate="isSomeVisibleSelected() && !isAllVisibleSelected()"
+                        @change="toggleAllVisible($event.target.checked)"
+                        class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                      >
+                      <span class="text-sm font-medium text-white">
+                        Select all visible (<span x-text="Math.min(filteredEmployees.length, 50)"></span>)
+                      </span>
+                    </label>
+                  </div>
+
+                  <!-- Employee Items -->
+                  <div class="divide-y divide-neutral-600">
+                    <template x-for="(employee, index) in filteredEmployees.slice(0, 50)" :key="employee.EmployeeCode || employee.id">
+                      <label class="flex items-center p-3 hover:bg-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          :value="employee.EmployeeCode || employee.id"
+                          :checked="selectedEmployees.some(emp => (emp.EmployeeCode || emp.id) === (employee.EmployeeCode || employee.id))"
+                          @change="toggleEmployeeSelection(employee, $event.target.checked)"
+                          class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                        >
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-medium text-white truncate" x-text="employee.EmployeeName"></h4>
+                            <span class="ml-2 text-xs text-neutral-400" x-text="employee.Band"></span>
+                          </div>
+                          <div class="flex items-center gap-4 mt-1 text-xs text-neutral-400">
+                            <span x-text="employee.FinalBU || 'No BU'"></span>
+                            <span class="text-neutral-500">•</span>
+                            <span x-text="employee.Offshore_Onsite"></span>
+                          </div>
+                        </div>
+                      </label>
+                    </template>
+                  </div>
+
+                  <!-- Show more indicator -->
+                  <div x-show="filteredEmployees.length > 50" class="bg-neutral-700 p-3 text-center border-t border-neutral-600">
+                    <p class="text-xs text-neutral-400">
+                      Showing first 50 results. Refine search to see more specific results.
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Initial State -->
+            <template x-if="searchQuery.length < 2">
+              <div class="text-center py-12">
+                <div class="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+                  <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                </div>
+                <h4 class="text-lg font-medium text-white mb-2">Search for Employees</h4>
+                <p class="text-neutral-400 text-sm">
+                  Start typing to search through 6,000+ employees in your organization
+                </p>
+              </div>
+            </template>
+
+            <!-- Configuration Panel -->
+            <template x-if="selectedEmployees.length > 0">
+              <div class="border-t border-neutral-600 pt-4 mt-4">
+                <h5 class="text-sm font-medium text-white mb-4">Employee Details</h5>
+
+                <!-- Employee Configuration Table -->
+                <div class="space-y-3">
+                  <div class="max-h-64 overflow-y-auto border border-neutral-600 rounded-lg">
+                    <div class="sticky top-0 bg-neutral-700 border-b border-neutral-600 px-3 py-2">
+                      <div class="grid grid-cols-12 gap-2 text-xs font-medium text-neutral-300">
+                        <div class="col-span-6">Employee</div>
+                        <div class="col-span-3">FTE</div>
+                        <div class="col-span-3">Customer</div>
+                      </div>
+                    </div>
+                    
+                    <div class="divide-y divide-neutral-600">
+                      <template x-for="employee in selectedEmployees" :key="employee.EmployeeCode || employee.id">
+                        <div class="grid grid-cols-12 gap-2 p-3 items-center">
+                          <!-- Employee Info -->
+                          <div class="col-span-6">
+                            <div class="text-sm font-medium text-white truncate" x-text="employee.EmployeeName"></div>
+                            <div class="text-xs text-neutral-400" x-text="employee.Band"></div>
+                          </div>
+                          
+                          <!-- FTE Input -->
+                          <div class="col-span-3">
+                            <input
+                              type="text"
+                              :value="getIndividualFTE(employee)"
+                              @input="handleFTEInput(employee, $event)"
+                              @keypress="validateFTEKeypress($event)"
+                              placeholder="1.0"
+                              pattern="^(0(\.\d*)?|1(\.0*)?)$"
+                              maxlength="3"
+                              class="w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                          </div>
+                          
+                          <!-- Customer Select -->
+                          <div class="col-span-3">
+                            <select 
+                              :value="getIndividualCustomer(employee)"
+                              @change="setIndividualCustomer(employee, $event.target.value)"
+                              class="individual-customer-select w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                              <option value="">Select</option>
+                              <template x-for="customer in availableCustomers" :key="customer">
+                                <option :value="customer" x-text="customer"></option>
+                              </template>
+                            </select>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Quick Actions -->
+                  <div class="flex gap-2 text-xs">
+                    <button 
+                      type="button"
+                      @click.prevent="handleSetAllFTE()"
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">
+                      Set all FTE to 1.0
+                    </button>
+                    
+                    <div class="flex gap-1">
+                      <select 
+                        x-model="bulkCustomer" 
+                        class="px-2 py-1.5 bg-neutral-700 border border-neutral-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="">Choose customer</option>
+                        <template x-for="customer in availableCustomers" :key="customer">
+                          <option :value="customer" x-text="customer"></option>
+                        </template>
+                      </select>
+                      <button 
+                        type="button"
+                        @click.prevent="handleSetAllCustomer()"
+                        :disabled="!bulkCustomer"
+                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        Set all to selected
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- New Hire Tab -->
+          <div x-show="activeTab === 'newhire'" class="space-y-4">
+            <div class="text-center py-12">
+              <div class="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+              </div>
+              <h4 class="text-lg font-medium text-white mb-2">Add New Hire</h4>
+              <p class="text-neutral-400 text-sm">
+                Add a new employee who is not yet in your organization's employee database.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-between p-6 border-t border-neutral-700">
+        <div class="text-sm text-neutral-400">
+          <span x-show="activeTab === 'existing' && selectedEmployees.length > 0">
+            <span x-text="selectedEmployees.length"></span> employee(s) selected
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="closeModal()" 
+                  class="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white transition-colors">
+            Cancel
+          </button>
+          <button @click="addSelectedEmployees()" 
+                  :disabled="!canAddEmployees()"
+                  :class="!canAddEmployees() ? 
+                    'px-4 py-2 text-sm font-medium bg-neutral-600 text-neutral-400 rounded-md cursor-not-allowed' :
+                    'px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors'">
+            <span x-show="activeTab === 'existing'">Add to Roster</span>
+            <span x-show="activeTab === 'newhire'">Create & Add</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function addEmployeeModal() {
+  return {
+    isOpen: false,
+    activeTab: 'existing',
+    
+    // Employee search state
+    searchQuery: '',
+    isLoadingEmployees: false,
+    allEmployees: [],
+    filteredEmployees: [],
+    selectedEmployees: [],
+    
+    // Configuration state
+    defaultFTE: 1.0,
+    defaultCustomer: '',
+    
+    // Available customers from filters
+    get availableCustomers() {
+      const customers = Alpine.store('filters')?.selectedCustomers || [];
+      console.log('Available customers:', customers);
+      return customers;
+    },
+    
+    init() {
+      // Listen for the global open event
+      window.addEventListener('open-add-employee-modal', () => {
+        this.openModal();
+      });
+    },
+    
+    async openModal() {
+      this.isOpen = true;
+      this.activeTab = 'existing';
+      this.resetState();
+      
+      // Load employees in background
+      await this.loadAllEmployees();
+      
+      // Set default customer to first available customer
+      if (this.availableCustomers.length > 0) {
+        this.defaultCustomer = this.availableCustomers[0];
+      }
+      
+      document.body.style.overflow = 'hidden';
+    },
+    
+    closeModal() {
+      this.isOpen = false;
+      this.resetState();
+      document.body.style.overflow = '';
+    },
+    
+    resetState() {
+      this.searchQuery = '';
+      this.filteredEmployees = [];
+      this.selectedEmployees = [];
+      this.defaultFTE = 1.0;
+      this.defaultCustomer = '';
+    },
+    
+    async loadAllEmployees() {
+      if (this.allEmployees.length > 0) return; // Already loaded
+      
+      this.isLoadingEmployees = true;
+      try {
+        const response = await fetch('/api/total-employees');
+        const data = await response.json();
+        
+        // Deduplicate employees by EmployeeCode (or id)
+        const uniqueEmployeesMap = new Map();
+        data.forEach(employee => {
+          const key = employee.EmployeeCode || employee.id;
+          if (!uniqueEmployeesMap.has(key)) {
+            uniqueEmployeesMap.set(key, employee);
+          }
+        });
+        
+        // Convert back to array
+        const uniqueEmployees = Array.from(uniqueEmployeesMap.values());
+        
+        // Filter out employees already on roster
+        const rosterIds = new Set([
+          ...Alpine.store('employees').rosterEmployees.map(emp => emp.EmployeeCode || emp.id),
+          ...Alpine.store('employees').newHires.map(emp => emp.id)
+        ]);
+        
+        this.allEmployees = uniqueEmployees.filter(emp => !rosterIds.has(emp.EmployeeCode || emp.id));
+        
+        console.log(`Loaded ${uniqueEmployees.length} unique employees (${data.length} total records)`);
+      } catch (error) {
+        console.error('Failed to load employees:', error);
+        this.allEmployees = [];
+      } finally {
+        this.isLoadingEmployees = false;
+      }
+    },
+    
+    searchEmployees() {
+      if (this.searchQuery.length < 2) {
+        this.filteredEmployees = [];
+        return;
+      }
+      
+      const query = this.searchQuery.toLowerCase();
+      this.filteredEmployees = this.allEmployees.filter(employee => {
+        const searchText = `${employee.EmployeeName} ${employee.FinalBU} ${employee.Band} ${employee.Offshore_Onsite}`.toLowerCase();
+        return searchText.includes(query);
+      });
+    },
+    
+    toggleEmployeeSelection(employee, isSelected) {
+      const employeeId = employee.EmployeeCode || employee.id;
+      if (isSelected) {
+        if (!this.selectedEmployees.some(emp => (emp.EmployeeCode || emp.id) === employeeId)) {
+          this.selectedEmployees.push(employee);
+        }
+      } else {
+        this.selectedEmployees = this.selectedEmployees.filter(emp => (emp.EmployeeCode || emp.id) !== employeeId);
+      }
+    },
+    
+    isAllVisibleSelected() {
+      const visibleEmployees = this.filteredEmployees.slice(0, 50);
+      return visibleEmployees.length > 0 && 
+             visibleEmployees.every(emp => this.selectedEmployees.some(selected => selected.id === emp.id));
+    },
+    
+    isSomeVisibleSelected() {
+      const visibleEmployees = this.filteredEmployees.slice(0, 50);
+      return visibleEmployees.some(emp => this.selectedEmployees.some(selected => selected.id === emp.id));
+    },
+    
+    toggleAllVisible(selectAll) {
+      const visibleEmployees = this.filteredEmployees.slice(0, 50);
+      
+      if (selectAll) {
+        // Add all visible employees that aren't already selected
+        visibleEmployees.forEach(employee => {
+          if (!this.selectedEmployees.some(emp => emp.id === employee.id)) {
+            this.selectedEmployees.push(employee);
+          }
+        });
+      } else {
+        // Remove all visible employees from selection
+        const visibleIds = new Set(visibleEmployees.map(emp => emp.id));
+        this.selectedEmployees = this.selectedEmployees.filter(emp => !visibleIds.has(emp.id));
+      }
+    },
+    
+    addSelectedEmployees() {
+      if (this.activeTab === 'existing') {
+        if (this.selectedEmployees.length === 0 || !this.defaultCustomer) {
+          return;
+        }
+        
+        // Add employees to roster with default values
+        this.selectedEmployees.forEach(employee => {
+          const rosterEmployee = {
+            ...employee,
+            FTE: this.defaultFTE,
+            FinalCustomer: this.defaultCustomer,
+            // Keep existing BU or use a default
+            FinalBU: employee.FinalBU || 'Unassigned'
+          };
+          
+          // Add to employees store
+          Alpine.store('employees').baseRosterEmployees.push(rosterEmployee);
+        });
+        
+        // Notify the store about changes
+        Alpine.store('employees').notifyStateChange();
+        
+        // Show success message
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            title: 'Employees Added',
+            description: `Successfully added ${this.selectedEmployees.length} employee(s) to the roster.`,
+            type: 'success'
+          }
+        }));
+        
+        this.closeModal();
+      }
+    }
+  };
+}
+
+// Global function to open the modal (called by the Add Employee button)
+function openAddEmployeeModal() {
+  window.dispatchEvent(new CustomEvent('open-add-employee-modal'));
+}
+</script>
