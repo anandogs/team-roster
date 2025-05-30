@@ -1,100 +1,16 @@
-{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block head
-%}
-<script
-  defer
-  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-></script>
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+scripts %}
+<script src="{{ url_for('static', filename='js/stores/filters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stores/employees.js') }}"></script>
+
 <script>
   document.addEventListener("alpine:init", () => {
-    Alpine.store("employees", {
-      totalEmployees: [],
-      rosterEmployees: [],
-      newHires: [],
-      loading: true,
-
-
-
-      async init() {
-        this.loading = true;
-        await Promise.all([
-          this.loadTotalEmployees(),
-          this.loadRosterEmployees(),
-        ]);
-        this.loading = false;
-        this.notifyStateChange();
-        console.log(this.rosterEmployees);
-      },
-
-      filterEmployees() {
-        console.log("filterEmployees");
-      },
-
-      async loadTotalEmployees() {
-        try {
-          const response = await fetch("/api/total-employees");
-          this.totalEmployees = await response.json();
-        } catch (e) {
-          this.totalEmployees = [];
-        }
-      },
-      async loadRosterEmployees() {
-        try {
-          const response = await fetch("/api/employees");
-          this.rosterEmployees = await response.json();
-        } catch (e) {
-          this.rosterEmployees = [];
-        }
-      },
-
-      getAvailableEmployees() {
-        const rosterIds = new Set([
-          ...this.rosterEmployees.map((emp) => emp.id),
-          ...this.newHires.map((emp) => emp.id),
-        ]);
-        return this.totalEmployees.filter((emp) => !rosterIds.has(emp.id));
-      },
-
-      addToRoster(employee, fte, location, isBillable) {
-        console.log("Adding to roster:", employee);
-        const rosterEmployee = {
-          ...employee,
-          fte: parseFloat(fte),
-          fteQuarter: parseFloat(fte),
-          location,
-          isBillable,
-          addedAt: new Date().toISOString(),
-        };
-
-        this.rosterEmployees.push(rosterEmployee);
-        this.notifyStateChange();
-      },
-
-      removeFromRoster(employeeId) {
-        console.log("Removing from roster:", employeeId);
-        this.rosterEmployees = this.rosterEmployees.filter(
-          (emp) => emp.id !== employeeId
-        );
-        this.notifyStateChange();
-      },
-
-      addNewHire(newHire) {
-        const id = `newhire${this.newHires.length + 1}`;
-        this.newHires.push({ ...newHire, id });
-        this.notifyStateChange();
-      },
-
-      notifyStateChange() {
-        window.dispatchEvent(new CustomEvent("employees-updated"));
-      },
-    });
+    Alpine.store('filters').init();
+    Alpine.store('employees').init();
   });
 
-  // Initialize store when Alpine is ready
-  document.addEventListener("alpine:initialized", () => {
-    console.log("Alpine.js initialized");
-    Alpine.store("employees").init();
-  });
 </script>
+
 {% endblock %} {% block filter_bar %} {% include 'components/filter_bar.html' %}
 {% endblock %} {% block content %}
 <div class="space-y-6">
@@ -106,76 +22,13 @@
   </div>
 
   <!-- Tabs -->
-  <div x-data="{ activeTab: 'roster' }">
-    <div
-      class="grid w-full grid-cols-4 bg-neutral-800 rounded-t-lg overflow-hidden"
-      id="tabs-list"
-    >
-      <button
-        @click="activeTab = 'roster'"
-        :class="{ 'bg-neutral-900 text-white': activeTab === 'roster', 'text-neutral-400': activeTab !== 'roster' }"
-        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
-      >
-        Current Roster
-      </button>
-      <button
-        @click="activeTab = 'add-employee'"
-        :class="{ 'bg-neutral-900 text-white': activeTab === 'add-employee', 'text-neutral-400': activeTab !== 'add-employee' }"
-        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
-      >
-        Add Existing Employee
-      </button>
-      <button
-        @click="activeTab = 'new-hire'"
-        :class="{ 'bg-neutral-900 text-white': activeTab === 'new-hire', 'text-neutral-400': activeTab !== 'new-hire' }"
-        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
-      >
-        Add New Hire
-      </button>
-      <button
-        @click="activeTab = 'direct-costs'"
-        :class="{ 'bg-neutral-900 text-white': activeTab === 'direct-costs', 'text-neutral-400': activeTab !== 'direct-costs' }"
-        class="tab-trigger inline-flex items-center justify-center whitespace-nowrap px-3 py-2 text-sm font-medium hover:text-white transition-colors"
-      >
-        Other Direct Costs
-      </button>
-    </div>
+  <div>
 
     <div
       class="bg-neutral-900 border-t-0 border border-neutral-800 rounded-b-lg p-4"
     >
-      <!-- Roster Tab -->
-      <div x-show="activeTab === 'roster'" x-cloak>
+      <div>
         {% include 'components/roster_table.html' %}
-      </div>
-
-      <!-- Add Employee Tab -->
-      <div x-show="activeTab === 'add-employee'" x-cloak>
-        <h2 class="text-xl font-bold mb-2">Add Existing Employee</h2>
-        <p class="text-neutral-400 mb-4">
-          Add an employee from the existing company pool to your roster.
-        </p>
-        {% include 'components/add_employee.html' %}
-      </div>
-
-      <!-- New Hire Tab -->
-      <div x-show="activeTab === 'new-hire'" x-cloak>
-        <h2 class="text-xl font-bold mb-2">Add New Hire</h2>
-        <p class="text-neutral-400 mb-4">
-          Create a new hire position by specifying band and FTE.
-        </p>
-        {% include 'components/new_hire_form.html' %}
-      </div>
-
-      <!-- Direct Costs Tab -->
-      <div x-show="activeTab === 'direct-costs'" x-cloak>
-        <h2 class="text-xl font-bold mb-2">Other Direct Costs</h2>
-        <p class="text-neutral-400 mb-4">
-          Add and manage direct costs that impact gross margin.
-        </p>
-        
-        <div id="direct-costs-table" class="mt-6"></div>
-        {% include 'components/direct_costs_form.html' %}
       </div>
     </div>
   </div>
@@ -212,11 +65,7 @@
       setTimeout(() => toast.remove(), 500);
     }, 5000);
   });
-
-  window.addEventListener("employees-updated", () => {
-    this.filterEmployees();
-    // ...other logic
-  });
 </script>
-{% endblock %} {% block sidebar %} {% include 'components/gm_summary.html' %} {%
-endblock %}
+{% endblock %} {% block sidebar %} {% include 'components/gm_summary.html' %}
+{% include 'components/audit_log.html' %}
+{%endblock %}

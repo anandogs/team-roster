@@ -1,176 +1,465 @@
-<!-- Roster Table Component -->
+<!-- Roster Cards Component -->
 <div
-    x-data="{
-        searchQuery: '',
-        editingEmployee: null,
-        tempFte: null,
+  x-data="{
+    searchQuery: '',
+    editingEmployee: null,
+    tempFte: null,
 
-        init() {
-            // Listen for employee updates
-            window.addEventListener('employees-updated', () => {
-                this.filterEmployees();
-            });
-        },
+    init() {
+        this.waitForFiltersStoreReady();
+    },
 
-        get isLoading() {
-            return $store.employees.loading;
-        },
+    async waitForFiltersStoreReady() {
+        const checkStore = () => {
+            const store = this.$store.filters;
+            return store?.availableLocations?.length > 0 && 
+                   store?.selectedLocations?.length > 0 && 
+                   store?.availableBillableStatus?.length > 0 && 
+                   store?.selectedBillableStatus?.length > 0;
+        };
+        
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (!checkStore() && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (checkStore()) {
+            this.populateDropdowns();
+        }
+    },
 
-        get filteredEmployees() {
-            const roster = [...$store.employees.rosterEmployees, ...$store.employees.newHires];
-            if (!this.searchQuery) return roster;
-            
-            const query = this.searchQuery.toLowerCase();
-            return roster.filter(emp => {
-                const searchStr = `${emp.name} ${emp.band} ${emp.customer || 'New Hire'}`.toLowerCase();
-                return searchStr.includes(query);
-            });
-        },
+    populateDropdowns() {
+        this.$store.filters.updateLocationOptions();
+        this.$store.filters.updateBillableOptions();
+    },
 
-        startEdit(employee) {
-            this.editingEmployee = employee.id;
-            this.tempFte = employee.fte || employee.fteQuarter || 0;
-        },
+    get isLoading() {
+        return $store.employees.loading;
+    },
 
-        saveFteEdit(employee) {
-            if (this.tempFte < 0 || this.tempFte > 1) {
-                return;
-            }
-
-            const index = $store.employees.rosterEmployees.findIndex(emp => emp.id === employee.id);
-            if (index !== -1) {
-                $store.employees.rosterEmployees[index] = {
-                    ...$store.employees.rosterEmployees[index],
-                    fte: parseFloat(this.tempFte)
-                };
-                $store.employees.notifyStateChange();
-            }
-
-            this.editingEmployee = null;
-            this.tempFte = null;
-        },
-
-        removeEmployee(employee) {
-            if (!confirm(`Are you sure you want to remove ${employee.name} from the roster?`)) {
-                return;
-            }
-
-            if (employee.id.startsWith('newhire')) {
-                $store.employees.newHires = $store.employees.newHires.filter(emp => emp.id !== employee.id);
-            } else {
-                $store.employees.removeFromRoster(employee.id);
+    get filteredEmployees() {
+        $store.employees.auditLogVersion;
+        
+        let roster = [...$store.employees.rosterEmployees, ...$store.employees.newHires];
+        
+        const selectedLocations = $store.filters?.selectedLocations || [];
+        const selectedCustomers = $store.filters?.selectedCustomers || [];
+        const allCustomers = $store.filters?.customers || [];
+        const allLocations = $store.filters?.availableLocations || [];
+        const selectedBillableStatus = $store.filters?.selectedBillableStatus || [];
+        const allBillableStatus = $store.filters?.availableBillableStatus?.map(s => s.value) || [];
+        const selectedBusinessUnits = $store.filters?.selectedBusinessUnits || [];
+        const allBusinessUnits = $store.filters?.businessUnits || [];
+        
+        // Apply customer filter
+        if (allCustomers.length > 0) {
+            if (selectedCustomers.length === 0) {
+                roster = [];
+            } else if (selectedCustomers.length < allCustomers.length) {
+                roster = roster.filter(emp => 
+                    selectedCustomers.includes(emp.FinalCustomer)
+                );
             }
         }
-    }"
-    class="space-y-4"
+        
+        // Apply business units filter
+        if (allBusinessUnits.length > 0) {
+            if (selectedBusinessUnits.length === 0) {
+                roster = [];
+            } else if (selectedBusinessUnits.length < allBusinessUnits.length) {
+                roster = roster.filter(emp => 
+                    selectedBusinessUnits.includes(emp.FinalBU)
+                );
+            }
+        }
+        
+        // Apply locations filter
+        if (allLocations.length > 0) {
+            if (selectedLocations.length === 0) {
+                roster = [];
+            } else if (selectedLocations.length < allLocations.length) {
+                roster = roster.filter(emp => 
+                    selectedLocations.includes(emp.Offshore_Onsite)
+                );
+            }
+        }
+
+        // Apply billable status filter
+        if (allBillableStatus.length > 0) {
+            if (selectedBillableStatus.length === 0) {
+                roster = [];
+            } else if (selectedBillableStatus.length < allBillableStatus.length) {
+                roster = roster.filter(emp => {
+                    const empBillableStatus = emp.BillableYN === true || emp.BillableYN === 'Y' ? 'Y' : 'N';
+                    return selectedBillableStatus.includes(empBillableStatus);
+                });
+            }
+        }
+
+        // Apply search query filter
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase();
+            roster = roster.filter(emp => {
+                const searchStr = `${emp.EmployeeName} ${emp.Offshore_Onsite} ${emp.FinalCustomer} ${emp.FinalBU}`.toLowerCase();
+                return searchStr.includes(query);
+            });
+        }
+        
+        return roster;
+    },
+
+    startEdit(employee) {
+        this.editingEmployee = employee.id;
+        this.tempFte = employee.FTE || 0;
+    },
+
+    saveFteEdit(employee) {
+        if (this.tempFte < 0 || this.tempFte > 1) {
+            return;
+        }
+
+        const oldFTE = employee.FTE || 0;
+        const newFTE = parseFloat(this.tempFte);
+        
+        $store.employees.updateEmployeeFTE(employee.id, oldFTE, newFTE);
+
+        this.editingEmployee = null;
+        this.tempFte = null;
+    },
+
+    cancelEdit() {
+        this.editingEmployee = null;
+        this.tempFte = null;
+    },
+
+    removeEmployee(employee) {
+        if (!confirm(`Are you sure you want to remove ${employee.EmployeeName || employee.name} from the roster?`)) {
+            return;
+        }
+
+        if (employee.id.startsWith('newhire')) {
+            $store.employees.newHires = $store.employees.newHires.filter(emp => emp.id !== employee.id);
+        } else {
+            $store.employees.removeFromRoster(employee.id);
+        }
+    }
+}"
+  class="space-y-4"
+  x-init="init()"
 >
-    <!-- Loading State -->
-    <template x-if="isLoading">
-        <div class="text-center py-8">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-            <p class="mt-4 text-neutral-400">Loading roster data...</p>
-        </div>
-    </template>
+  <!-- Loading State -->
+  <template x-if="isLoading">
+    <div class="text-center py-8">
+      <div
+        class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"
+      ></div>
+      <p class="mt-4 text-neutral-400">Loading roster data...</p>
+    </div>
+  </template>
 
-    <!-- Roster Table -->
-    <template x-if="!isLoading">
-        <div>
-            <!-- Search Input -->
-            <div class="relative">
-                <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  <!-- Roster Cards -->
+  <template x-if="!isLoading">
+    <div class="space-y-6">
+      <!-- Search, Add Employee, and Filters Row -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <!-- Left Side: Search and Add Employee -->
+        <div class="flex items-center gap-3">
+          <!-- Search Input -->
+          <div class="relative">
+            <svg
+              class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500 pointer-events-none"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              x-model="searchQuery"
+              placeholder="Search employees..."
+              class="w-72 pl-10 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+<!-- Add Employee Button -->
+<button
+  type="button"
+  class="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
+  @click=""
+  title="Add Employee"
+  style="width: 40px; height: 40px; min-width: 40px;"
+>
+  <svg class="w-5 h-5" viewBox="-2.5 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18.723 21.788c-1.15-0.48-3.884-1.423-5.565-1.919-0.143-0.045-0.166-0.052-0.166-0.649 0-0.493 0.203-0.989 0.401-1.409 0.214-0.456 0.468-1.224 0.559-1.912 0.255-0.296 0.602-0.88 0.826-1.993 0.196-0.981 0.104-1.338-0.026-1.673-0.013-0.035-0.028-0.070-0.038-0.105-0.049-0.23 0.018-1.425 0.186-2.352 0.116-0.636-0.030-1.989-0.906-3.108-0.553-0.707-1.611-1.576-3.544-1.696l-1.060 0.001c-1.9 0.12-2.96 0.988-3.513 1.695-0.876 1.119-1.021 2.472-0.906 3.108 0.169 0.928 0.236 2.123 0.187 2.348-0.010 0.039-0.025 0.074-0.039 0.11-0.129 0.335-0.221 0.692-0.025 1.673 0.222 1.113 0.57 1.697 0.826 1.993 0.090 0.688 0.344 1.456 0.559 1.912 0.157 0.334 0.23 0.788 0.23 1.431 0 0.597-0.023 0.604-0.157 0.646-1.738 0.513-4.505 1.513-5.537 1.965-0.818 0.351-1.017 0.98-1.017 1.548s0 2.251 0 2.623c0 0.371 0.22 1.006 1.017 1.006 0.613 0 5.518 0 7.746 0 0.668 0 1.098 0 1.098 0h0.192c0 0 0.437 0 1.115 0 2.237 0 7.135 0 7.747 0 0.796 0 1.017-0.634 1.017-1.006s0-2.055 0-2.623-0.392-1.262-1.209-1.613z"/>
+    <path d="M23.078 14.441v-4.185h-1.049v4.185h-4.186v1.049h4.186v4.185h1.049v-4.185h4.185v-1.049z"/>
+  </svg>
+</button>
+        </div>
+
+        <!-- Right Side: Roster Filters -->
+        <div class="flex items-center gap-3">
+          <!-- Location Filter -->
+          <div class="flex items-center">
+            <div class="relative" x-data="{ open: false }" @click.away="open = false">
+              <button
+                class="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 text-sm"
+                @click="open = !open"
+              >
+                <span id="location-display" class="truncate text-left">All Locations</span>
+                <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <input
-                    type="text"
-                    x-model="searchQuery"
-                    placeholder="Search employees..."
-                    class="w-full pl-10 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+              </button>
+              <div
+                x-show="open"
+                x-cloak
+                style="display: none;"
+                class="absolute z-10 mt-1 w-[200px] rounded-md border border-neutral-700 bg-neutral-800 p-2"
+              >
+                <div class="max-h-60 overflow-auto">
+                  <!-- Select All Option -->
+                  <div class="border-b border-neutral-600 pb-2 mb-2">
+                    <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="select-all-locations"
+                        class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
+                        onchange="toggleAllLocations(this.checked)"
+                        checked
+                      >
+                      <span class="font-medium">Select All</span>
+                    </label>
+                  </div>
+                  
+                  <div class="space-y-1" id="location-options">
+                    <!-- This will be populated by the filters store -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Billable Status Filter -->
+          <div class="flex items-center">
+            <div class="relative" x-data="{ open: false }" @click.away="open = false">
+              <button
+                class="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 text-sm"
+                @click="open = !open"
+              >
+                <span id="billable-display" class="truncate text-left">All Billability</span>
+                <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div
+                x-show="open"
+                x-cloak
+                style="display: none;"
+                class="absolute z-10 mt-1 w-[150px] rounded-md border border-neutral-600 bg-neutral-700 p-2 right-0"
+              >
+                <div class="max-h-60 overflow-auto">
+                  <!-- Select All Option -->
+                  <div class="border-b border-neutral-500 pb-2 mb-2">
+                    <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-600 rounded-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="select-all-billable"
+                        class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
+                        onchange="toggleAllBillableStatus(this.checked)"
+                        checked
+                      >
+                      <span class="font-medium">Select All</span>
+                    </label>
+                  </div>
+                  
+                  <div class="space-y-1" id="billable-options">
+                    <!-- This will be populated by the filters store -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clear All Filters Icon -->
+          <button 
+            onclick="resetAllRosterFilters()"
+            class="p-2.5 text-neutral-400 hover:text-white transition-colors border border-neutral-600 rounded-lg hover:border-neutral-500 hover:bg-neutral-700"
+            title="Reset roster filters"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <template x-if="filteredEmployees.length === 0">
+        <div class="text-center py-16">
+          <svg class="mx-auto h-12 w-12 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <h3 class="mt-4 text-lg font-medium text-neutral-300">
+            <span x-text="searchQuery ? 'No matching employees found' : 'No employees in roster yet'"></span>
+          </h3>
+          <p class="mt-2 text-neutral-500">
+            <span x-text="searchQuery ? 'Try adjusting your search terms or filters.' : 'Add employees to get started.'"></span>
+          </p>
+        </div>
+      </template>
+
+      <!-- Employee Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <template x-for="employee in filteredEmployees" :key="employee.id">
+          <div class="bg-neutral-800 border border-neutral-700 rounded-xl p-6 hover:border-neutral-600 transition-colors duration-200">
+            <!-- Employee Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex-1 min-w-0">
+                <h3 class="text-lg font-semibold text-white truncate" x-text="employee.EmployeeName"></h3>
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-200" x-text="`${employee.Band}`"></span>
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" 
+                        :class="employee.BillableYN ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'"
+                        x-text="employee.BillableYN ? 'Billable' : 'Non-Billable'"></span>
+                </div>
+              </div>
+              
+              <!-- Action Buttons -->
+              <div class="flex items-center gap-1 ml-4">
+                <template x-if="editingEmployee === employee.id">
+                  <div class="flex gap-1">
+                    <button
+                      @click="saveFteEdit(employee)"
+                      class="p-2 text-green-400 hover:bg-neutral-700 rounded-md transition-colors"
+                      title="Save"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </button>
+                    <button
+                      @click="cancelEdit()"
+                      class="p-2 text-neutral-400 hover:bg-neutral-700 rounded-md transition-colors"
+                      title="Cancel"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+                <template x-if="editingEmployee !== employee.id">
+                  <div class="flex gap-1">
+                    <button
+                      @click="startEdit(employee)"
+                      class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-md transition-colors"
+                      title="Edit FTE"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                    </button>
+                    <button
+                      @click="removeEmployee(employee)"
+                      class="p-2 text-red-400 hover:text-red-300 hover:bg-neutral-700 rounded-md transition-colors"
+                      title="Remove from roster"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
             </div>
 
-            <div class="mt-4 rounded-md border border-neutral-800 overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-neutral-800">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">Name</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">Band</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">Customer</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">BU</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">Location</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">Billable</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-neutral-300">FTE</th>
-                            <th class="px-4 py-3 text-right text-sm font-medium text-neutral-300">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-neutral-800">
-                        <template x-if="filteredEmployees.length === 0">
-                            <tr>
-                                <td colspan="8" class="px-4 py-8 text-center text-neutral-500">
-                                    <span x-text="searchQuery ? 'No matching employees found.' : 'No employees in roster yet.'"></span>
-                                </td>
-                            </tr>
-                        </template>
-                        <template x-for="employee in filteredEmployees" :key="employee.id">
-                            <tr class="border-neutral-800">
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.name"></td>
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.band"></td>
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.customer || 'New Hire'"></td>
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.businessUnit || '-'"></td>
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.location"></td>
-                                <td class="px-4 py-3 whitespace-nowrap" x-text="employee.isBillable ? 'Yes' : 'No'"></td>
-                                <td class="px-4 py-3">
-                                    <template x-if="editingEmployee === employee.id">
-                                        <input
-                                            type="number"
-                                            x-model="tempFte"
-                                            step="0.1"
-                                            min="0"
-                                            max="1"
-                                            class="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-sm"
-                                        >
-                                    </template>
-                                    <template x-if="editingEmployee !== employee.id">
-                                        <span x-text="(employee.fte || employee.fteQuarter || 0).toFixed(2)"></span>
-                                    </template>
-                                </td>
-                                <td class="px-4 py-3 text-right space-x-1">
-                                    <template x-if="editingEmployee === employee.id">
-                                        <button
-                                            @click="saveFteEdit(employee)"
-                                            class="inline-flex items-center justify-center p-1 rounded-md hover:bg-neutral-700"
-                                            title="Save"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                            </svg>
-                                        </button>
-                                    </template>
-                                    <template x-if="editingEmployee !== employee.id">
-                                        <button
-                                            @click="startEdit(employee)"
-                                            class="inline-flex items-center justify-center p-1 rounded-md hover:bg-neutral-700"
-                                            title="Edit"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                            </svg>
-                                        </button>
-                                    </template>
-                                    <button
-                                        @click="removeEmployee(employee)"
-                                        class="inline-flex items-center justify-center p-1 rounded-md hover:bg-neutral-700"
-                                        title="Remove from roster"
-                                    >
-                                        <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
+            <!-- Employee Details -->
+            <div class="space-y-3">
+              <!-- Customer & BU -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <dt class="text-sm font-medium text-neutral-400">Customer</dt>
+                  <dd class="text-sm text-white font-medium mt-1" x-text="employee.FinalCustomer || 'New Hire'"></dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-neutral-400">BU</dt>
+                  <dd class="text-sm text-white font-medium mt-1" x-text="employee.FinalBU || '-'"></dd>
+                </div>
+              </div>
+
+              <!-- Location & FTE -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <dt class="text-sm font-medium text-neutral-400">Location</dt>
+                  <dd class="text-sm text-white font-medium mt-1" x-text="employee.Offshore_Onsite"></dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-neutral-400">FTE</dt>
+                  <dd class="text-sm text-white font-medium mt-1">
+                    <template x-if="editingEmployee === employee.id">
+                      <input
+                        type="number"
+                        x-model="tempFte"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        class="w-20 px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        @keydown.enter="saveFteEdit(employee)"
+                        @keydown.escape="cancelEdit()"
+                      />
+                    </template>
+                    <template x-if="editingEmployee !== employee.id">
+                      <span x-text="(employee.FTE || 0).toFixed(2)"></span>
+                    </template>
+                  </dd>
+                </div>
+              </div>
             </div>
-        </div>
-    </template>
-</div> 
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+// Roster filter functions
+function toggleBillableStatus(statusValue, isChecked) {
+    Alpine.store('filters').toggleBillableStatus(statusValue, isChecked);
+}
+
+function toggleAllBillableStatus(selectAll) {
+    Alpine.store('filters').toggleAllBillableStatus(selectAll);
+}
+
+function clearAllBillableStatus() {
+    Alpine.store('filters').clearAllBillableStatus();
+}
+
+function toggleLocation(location, isChecked) {
+    Alpine.store('filters').toggleLocation(location, isChecked);
+}
+
+function toggleAllLocations(selectAll) {
+    Alpine.store('filters').toggleAllLocations(selectAll);
+}
+
+function clearAllLocations() {
+    Alpine.store('filters').clearAllLocations();
+}
+
+function resetAllRosterFilters() {
+    Alpine.store('filters').toggleAllLocations(true);
+    Alpine.store('filters').toggleAllBillableStatus(true);
+}
+</script>

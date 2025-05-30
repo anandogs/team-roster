@@ -4,16 +4,16 @@ from pydantic import BaseModel
 
 class Employee(BaseModel):
     id: str
-    name: str
-    band: str
-    businessUnit: str
-    customer: str
-    fteApril: float
-    fteMay: float
-    fteJune: float
-    fteQuarter: float
-    location: str
-    billable: bool
+    EmployeeName: str
+    Band: str
+    FinalBU: str
+    FinalCustomer: str
+    AllocationFTECapped_M1: float
+    AllocationFTECapped_M2: float
+    AllocationFTECapped_M3: float
+    AllocationFTECapped_QTR: float
+    Offshore_Onsite: str
+    BillableYN: bool
 
 class DirectCost(BaseModel):
     id: str
@@ -56,44 +56,6 @@ revenue_data = {
     "Customer D": 700,
 }
 
-def generate_sample_employees():
-    bands = ["Junior", "Mid-level", "Senior", "Principal"]
-    first_names = ["Alex", "Jamie", "Jordan", "Taylor", "Casey", "Riley", "Morgan", "Quinn", "Avery", "Dakota", "Skyler", "Reese", "Parker", "Hayden", "Drew"]
-    last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson"]
-    
-    employees = []
-    for i in range(1, 31):
-        first_name = first_names[i % len(first_names)]
-        last_name = last_names[i % len(last_names)]
-        band = bands[i % len(bands)]
-        
-        fte_april = round(i % 10 / 10, 1)
-        fte_may = round((i + 1) % 10 / 10, 1)
-        fte_june = 0 if i % 2 == 0 else round((i + 2) % 10 / 10, 1)
-        fte_quarter = round((fte_april + fte_may + fte_june) / 3, 2)
-        
-        business_unit = "BU A" if i % 2 == 0 else "BU B"
-        customer_options = bu_to_customers[business_unit]
-        customer = customer_options[i % len(customer_options)]
-        
-        location = "Offshore" if i % 3 != 0 else "Onsite"
-        billable = i % 5 != 0
-        
-        employees.append(Employee(
-            id=str(i),
-            name=f"{first_name} {last_name}",
-            band=band,
-            businessUnit=business_unit,
-            customer=customer,
-            fteApril=fte_april,
-            fteMay=fte_may,
-            fteJune=fte_june,
-            fteQuarter=fte_quarter,
-            location=location,
-            billable=billable
-        ))
-    
-    return employees
 
 def generate_sample_direct_costs():
     return [

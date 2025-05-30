@@ -1,147 +1,113 @@
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
+from datetime import datetime
 from models import (
-    Employee, DirectCost, GMState, FilterState,
-    generate_sample_employees, generate_sample_direct_costs,
+    FilterState,
+    generate_sample_direct_costs,
     bu_to_customers, revenue_data
 )
-import json
-from datetime import datetime
 import pandas as pd
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize sample data
-employees = generate_sample_employees()
+_cached_rac_data = None
+_cache_timestamp = None
+
+def get_cached_rac_data():
+    global _cached_rac_data, _cache_timestamp
+
+    current_time = datetime.now()
+    if (_cached_rac_data is None or _cache_timestamp is None or (current_time - _cache_timestamp).seconds > 3600):
+        print("Loading freshRAC data...")
+        _cached_rac_data = get_df()
+        _cache_timestamp = current_time
+
+    return _cached_rac_data
+
 direct_costs = generate_sample_direct_costs()
 
+# update revenue numbers
+# at the app entry we want to get the users email and accordingly display the data. each user has certain customers they can access.
 
-def load_total_employees():
+customer_list = [{'FinalCustomer': 'Sony India Software Centre Pvt Ltd', 'FinalBU': 'US TMTE'}, {'FinalCustomer': 'Aquent LLC', 'FinalBU': 'US TMTE'}]
+customer_df = pd.DataFrame(customer_list)
+
+def get_df():
+    df = pd.read_csv('Q1FY2026.csv', low_memory=False)
+    return df
+
+
+def load_employees(customer_list: list | None = None):
     try:
-        df = pd.read_csv('storage/total_employees.csv')
-        return df
+        df = get_cached_rac_data()
+        relevant_columns = [
+            'EmployeeCode', 
+            'EmployeeName',
+            'Band',
+            'Offshore_Onsite',
+            'FinalBU', 
+            'FinalCustomer',
+            'PrismCustomerGroup',
+            'ProjectRole',
+            'Sub-Practice', 
+            'Practice',
+            'BillableYN',
+            'AllocationFTECapped_M1',
+            'AllocationFTECapped_M2',
+            'AllocationFTECapped_M3',
+            'AllocationFTECapped_QTR',
+            'TotalFTECapped_M1',
+            'TotalFTECapped_M2',
+            'TotalFTECapped_M3',
+            'TotalFTECapped_QTR',
+            'TotalCost_M1',
+            'TotalCost_M2',
+            'TotalCost_M3',
+            'TotalCost_QTR',
+        ]
+        df = df[relevant_columns]
+        columns_to_concat = ['EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
+                     'FinalBU', 'FinalCustomer', 'PrismCustomerGroup', 
+                     'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN']
+        df.loc[:, 'BillableYN'] = df['BillableYN'].map({'Y': True, 'N': False})
+
+        grouped_df = df.groupby(columns_to_concat).sum(numeric_only=True).reset_index()
+        grouped_df['id'] = grouped_df[columns_to_concat].astype(str).agg(''.join, axis=1)
+        grouped_df['CPC_M1'] = grouped_df['TotalCost_M1'] / grouped_df['TotalFTECapped_M1']
+        grouped_df['CPC_M2'] = grouped_df['TotalCost_M2'] / grouped_df['TotalFTECapped_M2']
+        grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3']
+        grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'] / 3
+        if customer_list:
+            filtered_df = grouped_df[grouped_df['FinalCustomer'].isin(customer_list)].reset_index(drop=True)
+        else:
+            filtered_df = grouped_df
+        total_fte_idx = filtered_df.columns.get_loc('TotalFTECapped_M1')
+        columns_to_drop = filtered_df.columns[total_fte_idx:]
+        columns_to_drop = columns_to_drop.drop('id')
+        filtered_df.drop(columns=columns_to_drop, inplace=True)
+        without_ctc = grouped_df.drop(columns=columns_to_drop, inplace=False)
+        return grouped_df, filtered_df, without_ctc
     except Exception as e:
         print(f"Error loading total employees: {str(e)}")
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
-# Load employee data from JSON file
-def load_employees():
-    try:
-        with open('data/employees.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return []
-
-# Save employee data to JSON file
-def save_employees(employees):
-    with open('data/employees.json', 'w') as f:
-        json.dump(employees, f, indent=4)
 
 def calculate_gm(filter_state: FilterState):
-    # Filter employees based on current filters
-    filtered_employees = employees.copy()
-    
-    if filter_state.businessUnit:
-        filtered_employees = [e for e in filtered_employees if e.businessUnit == filter_state.businessUnit]
-        if filter_state.customer:
-            filtered_employees = [e for e in filtered_employees if e.customer == filter_state.customer]
-    
-    if filter_state.location != "All":
-        filtered_employees = [e for e in filtered_employees if e.location == filter_state.location]
-    
-    if filter_state.billableStatus == "Billable":
-        filtered_employees = [e for e in filtered_employees if e.billable]
-    elif filter_state.billableStatus == "Non-Billable":
-        filtered_employees = [e for e in filtered_employees if not e.billable]
-    
-    # Calculate FTE based on selected month
-    def get_current_fte(employee: Employee) -> float:
-        if filter_state.month == "April":
-            return employee.fteApril
-        elif filter_state.month == "May":
-            return employee.fteMay
-        elif filter_state.month == "June":
-            return employee.fteJune
-        else:  # Quarter
-            return employee.fteQuarter
-    
-    # Calculate weighted FTE
-    band_weights = {
-        "Junior": 1,
-        "Mid-level": 0.9,
-        "Senior": 0.8,
-        "Principal": 0.7
-    }
-    
-    total_fte = sum(get_current_fte(e) for e in filtered_employees)
-    weighted_fte = sum(get_current_fte(e) * band_weights.get(e.band, 1) for e in filtered_employees)
-    
-    # Calculate revenue based on filters
-    filtered_revenue = revenue_data["overall"]
-    if filter_state.customer:
-        filtered_revenue = revenue_data.get(filter_state.customer, 0)
-    elif filter_state.businessUnit:
-        filtered_revenue = revenue_data.get(filter_state.businessUnit, 0)
-    
-    # Calculate applicable direct costs
+    current_gm = 60
+    filtered_revenue = 100
     applicable_direct_costs = 0
-    for cost in direct_costs:
-        if cost.level == "Overall":
-            applicable_direct_costs += cost.amount
-        elif cost.level == "Business Unit" and cost.businessUnit:
-            if (filter_state.businessUnit == cost.businessUnit or
-                (filter_state.customer and filter_state.customer in bu_to_customers.get(cost.businessUnit, []))):
-                applicable_direct_costs += cost.amount
-        elif cost.level == "Customer" and cost.customer:
-            if filter_state.customer == cost.customer:
-                applicable_direct_costs += cost.amount
-    
-    # Calculate GM percentage
-    base_gm = 60
-    fte_impact = (weighted_fte / total_fte * 5) if total_fte > 0 else 0
-    direct_cost_impact = (applicable_direct_costs / filtered_revenue * 100) if filtered_revenue > 0 else 0
-    
-    current_gm = base_gm + fte_impact - direct_cost_impact
-    
+
     return {
         "currentGM": current_gm,
         "revenue": filtered_revenue,
         "directCosts": applicable_direct_costs
     }
 
-def load_employee_data():
-    """Load employee data from storage and convert to DataFrame"""
-    try:
-        # This can be modified to load from your actual storage location
-        df = pd.read_csv('storage/employees.csv')
-        
-        # Ensure all required columns exist
-        required_columns = [
-            'id', 'name', 'band', 'businessUnit', 'customer', 
-            'location', 'billable', 'fteApril', 'fteMay', 
-            'fteJune', 'fteQuarter'
-        ]
-        
-        for col in required_columns:
-            if col not in df.columns:
-                if col.startswith('fte'):
-                    df[col] = 0.0
-                elif col == 'billable':
-                    df[col] = False
-                else:
-                    df[col] = ''
-        
-        return df
-    except Exception as e:
-        print(f"Error loading employee data: {str(e)}")
-        return pd.DataFrame(columns=required_columns)
-
 def save_employee_data(df):
     """Save employee data back to storage"""
     try:
-        # This can be modified to save to your actual storage location
         df.to_csv('storage/employees.csv', index=False)
         return True
     except Exception as e:
@@ -155,37 +121,91 @@ def home():
 @app.route('/api/total-employees')
 def get_total_employees():
     """Get all possible employees (the pool)"""
-    df = load_total_employees()
+    _,_,df = load_employees(customer_df['FinalCustomer'].to_list())
     return jsonify(df.to_dict(orient='records'))
 
 
-@app.route('/api/employees')
+@app.route('/api/employees', methods=['GET'])
 def get_employees():
     """Get all employees data"""
-    df = load_employee_data()
-    return jsonify(df.to_dict(orient='records'))
+    _,df,_ = load_employees(customer_df['FinalCustomer'].to_list())
+    month = request.args.get('month')
+    location = request.args.get('location')
+
+    print(month)
+    fte_cols = ['AllocationFTECapped_M1', 'AllocationFTECapped_M2', 'AllocationFTECapped_M3',  'AllocationFTECapped_QTR'] 
+    if month == None or month == 'Quarter': # the page just loaded, and it defaults to quarter FTE
+        fte_cols_without_month = [col for col in fte_cols if col != 'AllocationFTECapped_QTR']
+        df_reduced = df.drop(columns=fte_cols_without_month)
+        df_reduced.rename(columns={'AllocationFTECapped_QTR': 'FTE'}, inplace=True)
+        df_reduced['FTE'] = df_reduced['FTE'].round(2)
+    else:
+        month_col = f'AllocationFTECapped_{month}'
+        df_reduced = df.drop(columns=[col for col in fte_cols if col != month_col])
+        df_reduced.rename(columns={month_col: 'FTE'}, inplace=True)
+        df_reduced['FTE'] = df_reduced['FTE'].round(2)
+    
+    if location == None or location == 'All':
+        pass
+    else:
+        df_reduced = df_reduced[df_reduced['Offshore_Onsite'] == location].reset_index(drop=True)
+
+    print(df_reduced.columns)
+
+    return jsonify(df_reduced.to_dict(orient='records'))
+
+
+def get_quarter_months(fiscal_quarter):
+   """Convert 'Q1FY2026' to {'M1': 'Apr 25', 'M2': 'May 25', 'M3': 'Jun 25', 'QTR': 'Q1FY2026'}"""
+   
+   quarter = fiscal_quarter[:2]
+   fy_year = int(fiscal_quarter[4:])
+   
+   quarters = {
+       'Q1': [4, 5, 6], 'Q2': [7, 8, 9], 
+       'Q3': [10, 11, 12], 'Q4': [1, 2, 3]
+   }
+   
+   months = quarters[quarter]
+   cal_year = fy_year if quarter == 'Q4' else fy_year - 1
+   
+   result = {f'M{i+1}': datetime(cal_year, month, 1).strftime("%b %y") 
+             for i, month in enumerate(months)}
+   result['QTR'] = fiscal_quarter
+   
+   return result
+
+@app.route('/api/customers')
+def get_customers():
+    """Get customers for the user"""
+    return jsonify(customer_df.to_dict(orient='records'))
+
+@app.route('/api/period')
+def get_period():
+    """Get Quarter and Month names and numbers for filtering"""
+    df = get_cached_rac_data()
+    current_quarter = df['Quarter'].unique()[0]
+    period_dict = get_quarter_months(current_quarter)
+    return period_dict
+
 
 @app.route('/api/employees/<employee_id>', methods=['PATCH'])
 def update_employee(employee_id):
     """Update employee FTE values"""
     try:
-        df = load_employee_data()
+        _,df,_ = load_employees(customer_list)
         data = request.get_json()
         
-        # Find the employee
-        if employee_id not in df['id'].values:
+        if employee_id not in df['EmployeeCode'].values:
             return jsonify({'error': 'Employee not found'}), 404
         
-        # Update FTE values
-        mask = df['id'] == employee_id
+        mask = df['EmployeeCode'] == employee_id
         for key, value in data.items():
             if key.startswith('fte'):
                 df.loc[mask, key] = float(value)
         
-        # Recalculate quarter average
         df.loc[mask, 'fteQuarter'] = df.loc[mask, ['fteApril', 'fteMay', 'fteJune']].mean(axis=1).round(2)
         
-        # Save updated data
         if save_employee_data(df):
             return jsonify(df[mask].to_dict(orient='records')[0])
         else:
@@ -197,7 +217,7 @@ def update_employee(employee_id):
 
 @app.route('/api/direct-costs')
 def get_direct_costs():
-    return jsonify([c.dict() for c in direct_costs])
+    return jsonify([c.model_dump() for c in direct_costs])
 
 @app.route('/api/gm-state')
 def get_gm_state():
