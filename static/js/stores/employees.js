@@ -74,7 +74,7 @@ document.addEventListener("alpine:init", () => {
       return result;
     },
 
-    addAuditEntry(
+    async addAuditEntry(
       action,
       employeeId,
       oldValue,
@@ -103,13 +103,121 @@ document.addEventListener("alpine:init", () => {
         entry.employeeData = employeeData;
       }
 
+      // For GM impact calculation, we need additional data
+      let gmCalculationData = {
+        action,
+        employeeId,
+        employeeName,
+        oldValue: parseFloat(oldValue) || 0,
+        newValue: parseFloat(newValue) || 0,
+        fteChange: (parseFloat(newValue) || 0) - (parseFloat(oldValue) || 0),
+      };
+
+      // Get additional employee details based on action type
+      if (action === "ADD_EMPLOYEE" && employeeData) {
+        // For both existing employees and new hires
+        gmCalculationData.employeeCode =
+          employeeData.EmployeeCode || employeeData.id;
+        gmCalculationData.band = employeeData.Band;
+        gmCalculationData.location = employeeData.Offshore_Onsite;
+        gmCalculationData.isNewHire = String(employeeData.id || "").startsWith(
+          "newhire"
+        );
+        gmCalculationData.billableYN = employeeData.BillableYN;
+        gmCalculationData.finalBU = employeeData.FinalBU;
+        gmCalculationData.finalCustomer = employeeData.FinalCustomer;
+      } else {
+        // For EDIT_FTE and REMOVE_EMPLOYEE, look up employee details
+        const employee = this.findEmployeeDetails(employeeId);
+        if (employee) {
+          gmCalculationData.employeeCode = employee.EmployeeCode || employee.id;
+          gmCalculationData.band = employee.Band;
+          gmCalculationData.location = employee.Offshore_Onsite;
+          gmCalculationData.isNewHire = String(employee.id || "").startsWith(
+            "newhire"
+          );
+          gmCalculationData.billableYN = employee.BillableYN;
+          gmCalculationData.finalBU = employee.FinalBU;
+          gmCalculationData.finalCustomer = employee.FinalCustomer;
+        }
+      }
+
+      // Add GM calculation data to entry
+      entry.gmData = gmCalculationData;
+
       const currentLog = this.auditLog;
       currentLog.push(entry);
-      localStorage.setItem("roster-audit-log", JSON.stringify(currentLog));
+
+      try {
+        // Call GM impact calculation before updating frontend
+        console.log("Calling GM impact calculation...");
+        const response = await fetch("/api/gm-impact", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            auditLog: currentLog,
+            latestEntry: entry,
+          }),
+        });
+
+        if (response.ok) {
+          const gmResult = await response.json();
+          console.log("GM impact calculation result:", gmResult);
+
+          // Use the updated audit log with GM impact data
+          const updatedAuditLog = gmResult.auditLog || currentLog;
+          localStorage.setItem(
+            "roster-audit-log",
+            JSON.stringify(updatedAuditLog)
+          );
+
+          // Log the GM impact for the latest entry
+          const latestEntryWithGM = updatedAuditLog[updatedAuditLog.length - 1];
+          if (latestEntryWithGM?.gmImpact) {
+            console.log("GM Impact calculated:", {
+              costImpact: latestEntryWithGM.gmImpact.costImpact,
+              cpcUsed: latestEntryWithGM.gmImpact.cpcUsed,
+              fteChange: latestEntryWithGM.gmImpact.fteChange,
+            });
+          }
+        } else {
+          console.error("GM impact calculation failed:", response.status);
+          // Fallback: save without GM impact
+          localStorage.setItem("roster-audit-log", JSON.stringify(currentLog));
+        }
+      } catch (error) {
+        console.error("Error calling GM impact calculation:", error);
+        // Fallback: save without GM impact
+        localStorage.setItem("roster-audit-log", JSON.stringify(currentLog));
+      }
 
       this.auditLogVersion++;
       window.dispatchEvent(new CustomEvent("audit-log-updated"));
       this.notifyStateChange();
+    },
+
+    // Add this helper method to find employee details
+    findEmployeeDetails(employeeId) {
+      // First check in base roster employees
+      let employee = this.baseRosterEmployees.find(
+        (emp) => emp.id === employeeId
+      );
+
+      // If not found, check in new hires
+      if (!employee) {
+        employee = this.newHires.find((emp) => emp.id === employeeId);
+      }
+
+      // If still not found, check in total employees pool
+      if (!employee) {
+        employee = this.totalEmployees.find(
+          (emp) => (emp.EmployeeCode || emp.id) === employeeId
+        );
+      }
+
+      return employee;
     },
 
     getAuditDescription(action, employeeName, oldValue, newValue) {

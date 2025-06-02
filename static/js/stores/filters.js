@@ -43,7 +43,7 @@ document.addEventListener("alpine:init", () => {
       });
       this.customers = uniqueCustomers;
 
-      this.selectedCustomers = [...this.customers];
+    this.selectedCustomers = [...this.customers.map(c => c.FinalCustomer)];
       this.selectedLocations = [...this.availableLocations];
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
@@ -231,30 +231,27 @@ document.addEventListener("alpine:init", () => {
         customerOptions.innerHTML = this.customers
           .map(
             (customerObj) => `
-    <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
-        <input
-            type="checkbox"
-            value="${customerObj.FinalCustomer}"
-            class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-            onchange="toggleCustomer('${
-              customerObj.FinalCustomer
-            }', this.checked)"
-            ${
-              this.selectedCustomers.includes(customerObj.FinalCustomer)
-                ? "checked"
-                : ""
-            }
-        >
-        <span class="truncate">${customerObj.FinalCustomer}</span>
-    </label>
-            `
+<label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
+    <input
+        type="checkbox"
+        value="${customerObj.FinalCustomer}"
+        class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
+        onchange="toggleCustomer('${customerObj.FinalCustomer}', this.checked)"
+        ${
+          this.selectedCustomers.includes(customerObj.FinalCustomer)
+            ? "checked"
+            : ""
+        }
+    >
+    <span class="truncate">${customerObj.FinalCustomer}</span>
+</label>
+        `
           )
           .join("");
 
         this.updateCustomerDisplay();
       }
     },
-
     toggleCustomer(customer, isChecked) {
       if (isChecked) {
         if (!this.selectedCustomers.includes(customer)) {
@@ -273,7 +270,9 @@ document.addEventListener("alpine:init", () => {
 
     toggleAllCustomers(selectAll) {
       if (selectAll) {
-        this.selectedCustomers = [...this.customers];
+        this.selectedCustomers = [
+          ...this.customers.map((c) => c.FinalCustomer),
+        ];
       } else {
         this.selectedCustomers = [];
       }
@@ -304,11 +303,13 @@ document.addEventListener("alpine:init", () => {
 
       if (!displayElement) return;
 
+      const totalCustomers = this.customers.length;
+
       if (this.selectedCustomers.length === 0) {
         displayElement.textContent = "No Customers";
         if (clearButton) clearButton.classList.remove("hidden");
-      } else if (this.selectedCustomers.length === this.customers.length) {
-        displayElement.textContent = `All Customers (${this.customers.length})`;
+      } else if (this.selectedCustomers.length === totalCustomers) {
+        displayElement.textContent = `All Customers (${totalCustomers})`;
         if (clearButton) clearButton.classList.add("hidden");
       } else if (this.selectedCustomers.length === 1) {
         displayElement.textContent = this.selectedCustomers[0];

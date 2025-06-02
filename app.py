@@ -124,6 +124,212 @@ def get_total_employees():
     _,_,df = load_employees(customer_df['FinalCustomer'].to_list())
     return jsonify(df.to_dict(orient='records'))
 
+@app.route('/api/gm-impact', methods=['POST'])
+def calculate_gm_impact():
+    """Calculate GM impact for audit log entries"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        print("=== GM Impact Calculation ===")
+        
+        # Get the raw dataframe directly and process it ourselves
+        df = get_cached_rac_data()
+        print(f"Raw dataframe shape: {df.shape}")
+        
+        if df.empty:
+            return jsonify({'error': 'No data available in CSV file'}), 500
+        
+        # Initialize our lookup dictionaries
+        employee_cpc_lookup = {}
+        band_location_cpc_lookup = {}
+        
+        # Filter for the relevant columns we need
+        relevant_columns = [
+            'EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
+            'FinalBU', 'FinalCustomer', 'PrismCustomerGroup',
+            'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN',
+            'AllocationFTECapped_M1', 'AllocationFTECapped_M2', 'AllocationFTECapped_M3', 'AllocationFTECapped_QTR',
+            'TotalFTECapped_M1', 'TotalFTECapped_M2', 'TotalFTECapped_M3', 'TotalFTECapped_QTR',
+            'TotalCost_M1', 'TotalCost_M2', 'TotalCost_M3', 'TotalCost_QTR'
+        ]
+        
+        # Check if all required columns exist
+        missing_cols = [col for col in relevant_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing columns: {missing_cols}")
+            return jsonify({'error': f'Missing required columns: {missing_cols}'}), 500
+        
+        df_subset = df[relevant_columns].copy()
+        
+        # Group by employee-level columns to get aggregated data per employee
+        grouping_columns = ['EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
+                           'FinalBU', 'FinalCustomer', 'PrismCustomerGroup', 
+                           'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN']
+        
+        print("Grouping data by employee...")
+        grouped_df = df_subset.groupby(grouping_columns).agg({
+            'AllocationFTECapped_M1': 'sum',
+            'AllocationFTECapped_M2': 'sum', 
+            'AllocationFTECapped_M3': 'sum',
+            'AllocationFTECapped_QTR': 'sum',
+            'TotalFTECapped_M1': 'sum',
+            'TotalFTECapped_M2': 'sum',
+            'TotalFTECapped_M3': 'sum', 
+            'TotalFTECapped_QTR': 'sum',
+            'TotalCost_M1': 'sum',
+            'TotalCost_M2': 'sum',
+            'TotalCost_M3': 'sum',
+            'TotalCost_QTR': 'sum'
+        }).reset_index()
+        
+        print(f"Grouped dataframe shape: {grouped_df.shape}")
+        
+        # Calculate CPC (Cost Per Capita) for each employee
+        print("Calculating CPCs...")
+        grouped_df['CPC_M1'] = grouped_df['TotalCost_M1'] / grouped_df['TotalFTECapped_M1'].replace(0, 1)
+        grouped_df['CPC_M2'] = grouped_df['TotalCost_M2'] / grouped_df['TotalFTECapped_M2'].replace(0, 1)
+        grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3'].replace(0, 1)
+        grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'].replace(0, 1) / 3
+        
+        # Replace any infinite values with 0
+        grouped_df = grouped_df.replace([float('inf'), float('-inf')], 0)
+        
+        # Build employee CPC lookup using EmployeeCode
+        print("Building employee CPC lookup...")
+        for _, row in grouped_df.iterrows():
+            employee_code = str(int(row['EmployeeCode']))  # Convert to string for consistency
+            cpc_qtr = row['CPC_QTR']
+            employee_cpc_lookup[employee_code] = cpc_qtr
+        
+        # Build band + location CPC lookup for new hires
+        print("Building band+location CPC lookup...")
+        band_location_groups = grouped_df.groupby(['Band', 'Offshore_Onsite']).agg({
+            'TotalCost_QTR': 'sum',
+            'TotalFTECapped_QTR': 'sum'
+        }).reset_index()
+        
+        for _, row in band_location_groups.iterrows():
+            band = row['Band']
+            location = row['Offshore_Onsite']
+            total_cost = row['TotalCost_QTR']
+            total_fte = row['TotalFTECapped_QTR']
+            
+            # Calculate average CPC for this band + location combination
+            avg_cpc = (total_cost / total_fte / 3) if total_fte > 0 else 0
+            key = f"{band}_{location}"
+            band_location_cpc_lookup[key] = avg_cpc
+        
+        print(f"Employee CPC lookup entries: {len(employee_cpc_lookup)}")
+        print(f"Band+Location CPC lookup entries: {len(band_location_cpc_lookup)}")
+        
+        # Sample some data for verification
+        sample_employees = list(employee_cpc_lookup.items())[:5]
+        print(f"Sample employee CPCs: {sample_employees}")
+        
+        sample_band_location = list(band_location_cpc_lookup.items())[:5]
+        print(f"Sample band+location CPCs: {sample_band_location}")
+        
+        # Process the latest entry
+        if 'latestEntry' in data:
+            entry = data['latestEntry']
+            gmData = entry.get('gmData', {})
+            
+            print(f"\n=== Processing Entry ===")
+            print(f"Action: {entry.get('action')}")
+            print(f"Employee: {entry.get('employeeName')}")
+            print(f"FTE Change: {gmData.get('fteChange', 0)}")
+            
+            # Calculate GM impact
+            cpc_used = 0
+            lookup_method = ""
+            
+            if gmData.get('isNewHire', False):
+                # For new hires, use band + location average CPC
+                band = gmData.get('band', '')
+                location = gmData.get('location', '')
+                lookup_key = f"{band}_{location}"
+                
+                print(f"Looking up new hire CPC for: {lookup_key}")
+                
+                if lookup_key in band_location_cpc_lookup:
+                    cpc_used = band_location_cpc_lookup[lookup_key]
+                    lookup_method = f"band_location_avg ({lookup_key})"
+                    print(f"Found Band+Location CPC: {cpc_used}")
+                else:
+                    print(f"No CPC found for {lookup_key}")
+                    print(f"Available band+location keys: {list(band_location_cpc_lookup.keys())}")
+                    # Use overall average as fallback
+                    if band_location_cpc_lookup:
+                        cpc_used = sum(band_location_cpc_lookup.values()) / len(band_location_cpc_lookup)
+                        lookup_method = "fallback_avg"
+                        print(f"Using fallback average CPC: {cpc_used}")
+                    
+            else:
+                # For existing employees, use individual CPC
+                employee_code = str(gmData.get('employeeCode', ''))
+                print(f"Looking up employee CPC for: {employee_code}")
+                
+                if employee_code in employee_cpc_lookup:
+                    cpc_used = employee_cpc_lookup[employee_code]
+                    lookup_method = f"employee_specific ({employee_code})"
+                    print(f"Found Employee CPC: {cpc_used}")
+                else:
+                    print(f"Employee code {employee_code} not found in lookup")
+                    print(f"Sample lookup keys: {list(employee_cpc_lookup.keys())[:10]}")
+                    
+                    # Try to find the employee in the dataframe using .loc
+                    try:
+                        employee_code_int = int(employee_code)
+                        matching_rows = grouped_df.loc[grouped_df['EmployeeCode'] == employee_code_int]
+                        if not matching_rows.empty:
+                            cpc_used = matching_rows.iloc[0]['CPC_QTR']
+                            lookup_method = f"direct_lookup ({employee_code})"
+                            print(f"Found CPC via direct lookup: {cpc_used}")
+                        else:
+                            print(f"No matching rows found for EmployeeCode {employee_code_int}")
+                            cpc_used = 0
+                            lookup_method = "not_found"
+                    except ValueError:
+                        print(f"Could not convert {employee_code} to integer")
+                        cpc_used = 0
+                        lookup_method = "conversion_error"
+            
+            # Calculate the GM impact
+            fte_change = gmData.get('fteChange', 0)
+            gm_impact = fte_change * cpc_used
+            
+            print(f"Final calculation: {fte_change} FTE * {cpc_used} CPC = {gm_impact}")
+            print(f"Lookup method: {lookup_method}")
+            
+            # Add GM impact to the entry
+            entry['gmImpact'] = {
+                'cpcUsed': round(cpc_used, 2),
+                'fteChange': round(fte_change, 2),
+                'costImpact': round(gm_impact, 2),
+                'calculationMethod': lookup_method
+            }
+        
+        # Update the audit log with GM impact data
+        updated_audit_log = data.get('auditLog', [])
+        
+        return jsonify({
+            'success': True,
+            'auditLog': updated_audit_log,
+            'message': 'GM impact calculation completed',
+            'debug': {
+                'employee_cpc_count': len(employee_cpc_lookup),
+                'band_location_cpc_count': len(band_location_cpc_lookup)
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in GM impact calculation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
@@ -187,6 +393,7 @@ def get_period():
     current_quarter = df['Quarter'].unique()[0]
     period_dict = get_quarter_months(current_quarter)
     return period_dict
+
 
 
 @app.route('/api/employees/<employee_id>', methods=['PATCH'])
