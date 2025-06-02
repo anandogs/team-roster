@@ -1,4 +1,4 @@
-<!-- Add Employee Modal Component -->
+<!-- Add Employee Modal Component with Enhanced FTE Validation -->
 <div x-data="addEmployeeModal()" x-show="isOpen" x-cloak 
      class="fixed inset-0 z-50 overflow-y-auto" 
      @keydown.escape.window="closeModal()"
@@ -183,6 +183,23 @@
               <div class="border-t border-neutral-600 pt-4 mt-4">
                 <h5 class="text-sm font-medium text-white mb-4">Employee Details</h5>
 
+                <!-- Validation Summary -->
+                <template x-if="getValidationErrors().length > 0">
+                  <div class="mb-4 p-3 bg-red-900/20 border border-red-600 rounded-lg">
+                    <div class="flex items-center mb-2">
+                      <svg class="w-4 h-4 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span class="text-sm font-medium text-red-400">Validation Errors</span>
+                    </div>
+                    <ul class="text-sm text-red-300 space-y-1">
+                      <template x-for="error in getValidationErrors()" :key="error">
+                        <li x-text="error"></li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+
                 <!-- Employee Configuration Table -->
                 <div class="space-y-3">
                   <div class="max-h-64 overflow-y-auto border border-neutral-600 rounded-lg">
@@ -203,36 +220,56 @@
                             <div class="text-xs text-neutral-400" x-text="employee.Band"></div>
                           </div>
                           
-                          <!-- FTE Input -->
+                          <!-- FTE Input with Enhanced Validation -->
                           <div class="col-span-3">
-                            <input
-                              type="number"
-                              :value="getIndividualFTE(employee)"
-                              @input="setIndividualFTE(employee, $event.target.value)"
-                              min="0"
-                              max="1"
-                              step="0.1"
-                              placeholder="1.0"
-                              class="w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
+                            <div class="relative">
+                              <input
+                                type="number"
+                                :value="getIndividualFTE(employee)"
+                                @input="setIndividualFTE(employee, $event.target.value)"
+                                @blur="validateFTE(employee, $event.target.value)"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                placeholder="1.0"
+                                :class="getFTEInputClass(employee)"
+                                class="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1"
+                              >
+                              <!-- Error icon -->
+                              <template x-if="isFTEInvalid(employee)">
+                                <svg class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                              </template>
+                            </div>
                           </div>
                           
-                          <!-- Customer Select -->
+                          <!-- Customer Select with Enhanced Validation -->
                           <div class="col-span-3">
-                            <select 
-                              :value="getIndividualCustomer(employee)"
-                              @change="setIndividualCustomer(employee, $event.target.value)"
-                              class="individual-customer-select w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                              <option value="">Select</option>
-                              <template x-for="customer in availableCustomers" :key="customer">
-                                <option :value="customer" x-text="customer"></option>
+                            <div class="relative">
+                              <select 
+                                :value="getIndividualCustomer(employee)"
+                                @change="setIndividualCustomer(employee, $event.target.value)"
+                                :class="isCustomerInvalid(employee) ? 
+                                  'w-full px-2 py-1 bg-red-50 border border-red-600 text-red-900 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500' :
+                                  'w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'">
+                                <template x-for="customer in availableCustomers" :key="customer">
+                                  <option :value="customer" x-text="customer"></option>
+                                </template>
+                              </select>
+                              <!-- Error icon for customer -->
+                              <template x-if="isCustomerInvalid(employee)">
+                                <svg class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
                               </template>
-                            </select>
+                            </div>
                           </div>
                         </div>
                       </template>
                     </div>
                   </div>
+                </div>
               </div>
             </template>
           </div>
@@ -270,7 +307,8 @@
                   :disabled="!canAddEmployees()"
                   :class="!canAddEmployees() ? 
                     'px-4 py-2 text-sm font-medium bg-neutral-600 text-neutral-400 rounded-md cursor-not-allowed' :
-                    'px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors'">
+                    'px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors'"
+                  :title="!canAddEmployees() ? getDisabledButtonTooltip() : ''">
             <span x-show="activeTab === 'existing'">Add to Roster</span>
             <span x-show="activeTab === 'newhire'">Create & Add</span>
           </button>
@@ -296,6 +334,9 @@ function addEmployeeModal() {
     // Configuration state
     defaultFTE: 1.0,
     defaultCustomer: '',
+    
+    // Validation state
+    employeeConfigs: new Map(), // Store individual FTE and customer values
     
     // Available customers from filters
     get availableCustomers() {
@@ -339,6 +380,7 @@ function addEmployeeModal() {
       this.selectedEmployees = [];
       this.defaultFTE = 1.0;
       this.defaultCustomer = '';
+      this.employeeConfigs.clear();
     },
     
     async loadAllEmployees() {
@@ -396,21 +438,27 @@ function addEmployeeModal() {
       if (isSelected) {
         if (!this.selectedEmployees.some(emp => (emp.EmployeeCode || emp.id) === employeeId)) {
           this.selectedEmployees.push(employee);
+          // Initialize with default values - use first available customer
+          this.employeeConfigs.set(employeeId, {
+            fte: this.defaultFTE,
+            customer: this.availableCustomers.length > 0 ? this.availableCustomers[0] : ''
+          });
         }
       } else {
         this.selectedEmployees = this.selectedEmployees.filter(emp => (emp.EmployeeCode || emp.id) !== employeeId);
+        this.employeeConfigs.delete(employeeId);
       }
     },
     
     isAllVisibleSelected() {
       const visibleEmployees = this.filteredEmployees.slice(0, 50);
       return visibleEmployees.length > 0 && 
-             visibleEmployees.every(emp => this.selectedEmployees.some(selected => selected.id === emp.id));
+             visibleEmployees.every(emp => this.selectedEmployees.some(selected => (selected.EmployeeCode || selected.id) === (emp.EmployeeCode || emp.id)));
     },
     
     isSomeVisibleSelected() {
       const visibleEmployees = this.filteredEmployees.slice(0, 50);
-      return visibleEmployees.some(emp => this.selectedEmployees.some(selected => selected.id === emp.id));
+      return visibleEmployees.some(emp => this.selectedEmployees.some(selected => (selected.EmployeeCode || selected.id) === (emp.EmployeeCode || emp.id)));
     },
     
     toggleAllVisible(selectAll) {
@@ -419,29 +467,167 @@ function addEmployeeModal() {
       if (selectAll) {
         // Add all visible employees that aren't already selected
         visibleEmployees.forEach(employee => {
-          if (!this.selectedEmployees.some(emp => emp.id === employee.id)) {
+          const employeeId = employee.EmployeeCode || employee.id;
+          if (!this.selectedEmployees.some(emp => (emp.EmployeeCode || emp.id) === employeeId)) {
             this.selectedEmployees.push(employee);
+            // Default to first available customer
+            this.employeeConfigs.set(employeeId, {
+              fte: this.defaultFTE,
+              customer: this.availableCustomers.length > 0 ? this.availableCustomers[0] : ''
+            });
           }
         });
       } else {
         // Remove all visible employees from selection
-        const visibleIds = new Set(visibleEmployees.map(emp => emp.id));
-        this.selectedEmployees = this.selectedEmployees.filter(emp => !visibleIds.has(emp.id));
+        const visibleIds = new Set(visibleEmployees.map(emp => emp.EmployeeCode || emp.id));
+        this.selectedEmployees = this.selectedEmployees.filter(emp => {
+          const empId = emp.EmployeeCode || emp.id;
+          if (visibleIds.has(empId)) {
+            this.employeeConfigs.delete(empId);
+            return false;
+          }
+          return true;
+        });
       }
+    },
+    
+    // FTE and Customer management
+    getIndividualFTE(employee) {
+      const employeeId = employee.EmployeeCode || employee.id;
+      const config = this.employeeConfigs.get(employeeId);
+      return config ? config.fte : this.defaultFTE;
+    },
+    
+    setIndividualFTE(employee, value) {
+      const employeeId = employee.EmployeeCode || employee.id;
+      const config = this.employeeConfigs.get(employeeId) || { fte: this.defaultFTE, customer: this.defaultCustomer };
+      config.fte = parseFloat(value) || 0;
+      this.employeeConfigs.set(employeeId, config);
+    },
+    
+    getIndividualCustomer(employee) {
+      const employeeId = employee.EmployeeCode || employee.id;
+      const config = this.employeeConfigs.get(employeeId);
+      return config ? config.customer : (this.availableCustomers.length > 0 ? this.availableCustomers[0] : '');
+    },
+    
+    setIndividualCustomer(employee, value) {
+      const employeeId = employee.EmployeeCode || employee.id;
+      const config = this.employeeConfigs.get(employeeId) || { 
+        fte: this.defaultFTE, 
+        customer: this.availableCustomers.length > 0 ? this.availableCustomers[0] : ''
+      };
+      config.customer = value;
+      this.employeeConfigs.set(employeeId, config);
+    },
+    
+    // Validation methods
+    isFTEInvalid(employee) {
+      const fte = this.getIndividualFTE(employee);
+      return fte < 0 || fte > 1 || isNaN(fte);
+    },
+    
+    isCustomerInvalid(employee) {
+      const customer = this.getIndividualCustomer(employee);
+      return !customer || customer.trim() === '';
+    },
+    
+    getFTEInputClass(employee) {
+      const baseClasses = "w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1";
+      if (this.isFTEInvalid(employee)) {
+        return `${baseClasses} bg-red-50 border-red-600 text-red-900 focus:ring-red-500`;
+      }
+      return `${baseClasses} bg-neutral-700 border-neutral-600 text-white focus:ring-blue-500`;
+    },
+    
+    getFTEErrorMessage(employee) {
+      const fte = this.getIndividualFTE(employee);
+      if (isNaN(fte)) return "FTE must be a number";
+      if (fte < 0) return "FTE cannot be negative";
+      if (fte > 1) return "FTE cannot exceed 1.0";
+      return "";
+    },
+    
+    validateFTE(employee, value) {
+      // This method can be called on blur for additional validation
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0 || numValue > 1) {
+        // Could add additional feedback here if needed
+        console.warn(`Invalid FTE value: ${value} for employee ${employee.EmployeeName}`);
+      }
+    },
+    
+    getValidationErrors() {
+      const errors = [];
+      
+      this.selectedEmployees.forEach(employee => {
+        const employeeName = employee.EmployeeName;
+        
+        if (this.isFTEInvalid(employee)) {
+          const fte = this.getIndividualFTE(employee);
+          if (isNaN(fte)) {
+            errors.push(`${employeeName}: FTE must be a valid number`);
+          } else if (fte < 0) {
+            errors.push(`${employeeName}: FTE cannot be negative`);
+          } else if (fte > 1) {
+            errors.push(`${employeeName}: FTE cannot exceed 1.0`);
+          }
+        }
+        
+        if (this.isCustomerInvalid(employee)) {
+          errors.push(`${employeeName}: Customer selection is required`);
+        }
+      });
+      
+      return errors;
+    },
+    
+    canAddEmployees() {
+      if (this.activeTab === 'existing') {
+        // Must have selected employees and no validation errors
+        return this.selectedEmployees.length > 0 && this.getValidationErrors().length === 0;
+      } else if (this.activeTab === 'newhire') {
+        // Add conditions for new hire tab when implemented
+        return false;
+      }
+      return false;
+    },
+    
+    getDisabledButtonTooltip() {
+      const errors = this.getValidationErrors();
+      if (this.selectedEmployees.length === 0) {
+        return "Please select at least one employee";
+      }
+      if (errors.length > 0) {
+        return `Please fix validation errors: ${errors.slice(0, 2).join(', ')}${errors.length > 2 ? '...' : ''}`;
+      }
+      return "";
     },
     
     addSelectedEmployees() {
       if (this.activeTab === 'existing') {
-        if (this.selectedEmployees.length === 0 || !this.defaultCustomer) {
+        if (!this.canAddEmployees()) {
+          // Show validation errors in a toast
+          const errors = this.getValidationErrors();
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              title: 'Validation Error',
+              description: `Please fix the following issues: ${errors.slice(0, 2).join(', ')}${errors.length > 2 ? ` and ${errors.length - 2} more...` : ''}`,
+              type: 'error'
+            }
+          }));
           return;
         }
         
-        // Add employees to roster with default values
+        // Add employees to roster with individual values
         this.selectedEmployees.forEach(employee => {
+          const employeeId = employee.EmployeeCode || employee.id;
+          const config = this.employeeConfigs.get(employeeId);
+          
           const rosterEmployee = {
             ...employee,
-            FTE: this.defaultFTE,
-            FinalCustomer: this.defaultCustomer,
+            FTE: config?.fte || this.defaultFTE,
+            FinalCustomer: config?.customer || this.defaultCustomer,
             // Keep existing BU or use a default
             FinalBU: employee.FinalBU || 'Unassigned'
           };
