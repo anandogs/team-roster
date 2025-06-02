@@ -116,9 +116,9 @@ document.addEventListener("alpine:init", () => {
       if (action === "EDIT_FTE") {
         return `${employeeName}: FTE changed from ${oldValue} to ${newValue}`;
       } else if (action === "REMOVE_EMPLOYEE") {
-        return `${employeeName}: Removed from roster (FTE: ${oldValue} → 0)`;
+        return `${employeeName}: Removed from roster (FTE: ${oldValue} > 0)`;
       } else if (action === "ADD_EMPLOYEE") {
-        return `${employeeName}: Added to roster (FTE: 0 → ${newValue})`;
+        return `${employeeName}: Added to roster (FTE: 0 > ${newValue})`;
       }
       return "";
     },
