@@ -99,7 +99,7 @@
                     type="checkbox"
                     id="select-all-business-units"
                     class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                    onchange="toggleAllBusinessUnits(this.checked)"
+                    onchange="toggleAllBusinessUnitsWithConfirmation(this.checked)"
                     checked
                   >
                   <span class="font-medium">Select All</span>
@@ -141,7 +141,7 @@
               type="checkbox"
               id="select-all-customers"
               class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-              onchange="toggleAllCustomers(this.checked)"
+              onchange="toggleAllCustomersWithConfirmation(this.checked)"
               checked
             >
             <span class="font-medium">Select All</span>
@@ -165,7 +165,7 @@ async function initializeFilterBar() {
     await Alpine.store('filters').init();
 }
 
-// Wrapper functions that call Alpine store methods
+// Enhanced wrapper functions that call Alpine store methods with confirmation
 function selectMonth(monthKey, monthDisplay = null) {
     Alpine.store('filters').selectMonth(monthKey, monthDisplay);
 }
@@ -178,6 +178,23 @@ function toggleAllBusinessUnits(selectAll) {
     Alpine.store('filters').toggleAllBusinessUnits(selectAll);
 }
 
+// New confirmation wrapper functions
+function toggleBusinessUnitWithConfirmation(bu, isChecked) {
+    Alpine.store('filters').toggleBusinessUnitWithConfirmation(bu, isChecked);
+}
+
+function toggleAllBusinessUnitsWithConfirmation(selectAll) {
+    Alpine.store('filters').toggleAllBusinessUnitsWithConfirmation(selectAll);
+}
+
+function toggleCustomerWithConfirmation(customer, isChecked) {
+    Alpine.store('filters').toggleCustomerWithConfirmation(customer, isChecked);
+}
+
+function toggleAllCustomersWithConfirmation(selectAll) {
+    Alpine.store('filters').toggleAllCustomersWithConfirmation(selectAll);
+}
+
 function selectLocation(location) {
     Alpine.store('filters').selectLocation(location);
 }
@@ -185,7 +202,6 @@ function selectLocation(location) {
 function selectBillableStatus(status) {
     Alpine.store('filters').selectBillableStatus(status);
 }
-
 
 function toggleCustomer(customer, isChecked) {
     Alpine.store('filters').toggleCustomer(customer, isChecked);
@@ -203,7 +219,6 @@ function toggleAllBillableStatus(selectAll) {
     Alpine.store('filters').toggleAllBillableStatus(selectAll);
 }
 
-
 function toggleLocation(location, isChecked) {
     Alpine.store('filters').toggleLocation(location, isChecked);
 }
@@ -211,7 +226,6 @@ function toggleLocation(location, isChecked) {
 function toggleAllLocations(selectAll) {
     Alpine.store('filters').toggleAllLocations(selectAll);
 }
-
 
 document.addEventListener('DOMContentLoaded', initializeFilterBar);
 </script>

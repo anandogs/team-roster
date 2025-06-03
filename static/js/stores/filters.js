@@ -16,6 +16,95 @@ document.addEventListener("alpine:init", () => {
     customers: [],
     periodData: {},
 
+    // Helper method to check if audit log has entries
+    hasAuditLogEntries() {
+      const stored = localStorage.getItem("roster-audit-log");
+      const auditLog = stored ? JSON.parse(stored) : [];
+      return auditLog.length > 0;
+    },
+
+    // Helper method to clear audit log and refresh
+    clearAuditLogAndRefresh() {
+      localStorage.removeItem("roster-audit-log");
+      
+      // Show brief success message
+      window.dispatchEvent(
+        new CustomEvent("show-toast", {
+          detail: {
+            title: "Clearing Changes",
+            description: "Refreshing page in 2 seconds...",
+            type: "success",
+          },
+        })
+      );
+
+      // Auto-refresh after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+
+    // Enhanced filter update method with confirmation
+    async updateFiltersWithConfirmation(filterType = "general") {
+      // Check if there are audit log entries
+      if (this.hasAuditLogEntries()) {
+        const filterTypeText = filterType === "month" ? "time period" : 
+                              filterType === "businessUnit" ? "business unit" : 
+                              filterType === "customer" ? "customer selection" : "filters";
+        
+        const confirmed = confirm(
+          `Changing the ${filterTypeText} will reset all roster changes you've made. ` +
+          `This will clear your audit log and refresh the page.\n\n` +
+          `Do you want to continue?`
+        );
+        
+        if (!confirmed) {
+          // Revert the filter change by restoring previous state
+          this.revertFilterChange(filterType);
+          return false;
+        } else {
+          // User confirmed, clear audit log and refresh
+          this.clearAuditLogAndRefresh();
+          return true;
+        }
+      }
+      
+      // No audit log entries, proceed with normal filter update
+      this.updateFilters();
+      return true;
+    },
+
+    // Method to revert filter changes when user cancels
+    revertFilterChange(filterType) {
+      // This method will restore the UI elements to their previous state
+      setTimeout(() => {
+        switch (filterType) {
+          case "month":
+            // Revert month display
+            this.updateMonthDisplay();
+            break;
+          case "businessUnit":
+            // Revert business unit checkboxes
+            this.updateBusinessUnitOptions();
+            break;
+          case "customer":
+            // Revert customer checkboxes
+            this.updateCustomerOptions();
+            break;
+        }
+      }, 50);
+    },
+
+    // Method to update month display based on current state
+    updateMonthDisplay() {
+      const displayElement = document.getElementById("month-display");
+      if (displayElement) {
+        const displayText = this.month === "Quarter" ? "Quarter" : 
+                           this.periodData[this.month] || this.month;
+        displayElement.textContent = displayText;
+      }
+    },
+
     // Initialization
     async init() {
       const [filterResponse, periodResponse, customersResponse] =
@@ -43,7 +132,7 @@ document.addEventListener("alpine:init", () => {
       });
       this.customers = uniqueCustomers;
 
-    this.selectedCustomers = [...this.customers.map(c => c.FinalCustomer)];
+      this.selectedCustomers = [...this.customers.map(c => c.FinalCustomer)];
       this.selectedLocations = [...this.availableLocations];
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
@@ -111,7 +200,7 @@ document.addEventListener("alpine:init", () => {
       });
     },
 
-    // Business Unit Methods
+    // Business Unit Methods (Enhanced)
     updateBusinessUnitOptions() {
       const buOptions = document.getElementById("bu-options");
       if (buOptions) {
@@ -123,7 +212,7 @@ document.addEventListener("alpine:init", () => {
                         type="checkbox"
                         value="${bu}"
                         class="bu-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                        onchange="toggleBusinessUnit('${bu}', this.checked)"
+                        onchange="toggleBusinessUnitWithConfirmation('${bu}', this.checked)"
                         ${
                           this.selectedBusinessUnits.includes(bu)
                             ? "checked"
@@ -137,6 +226,35 @@ document.addEventListener("alpine:init", () => {
           .join("");
 
         this.updateBusinessUnitDisplay();
+      }
+    },
+
+    async toggleBusinessUnitWithConfirmation(bu, isChecked) {
+      // Store previous state
+      const previousState = [...this.selectedBusinessUnits];
+      
+      // Apply the change temporarily
+      if (isChecked) {
+        if (!this.selectedBusinessUnits.includes(bu)) {
+          this.selectedBusinessUnits.push(bu);
+        }
+      } else {
+        this.selectedBusinessUnits = this.selectedBusinessUnits.filter(
+          (b) => b !== bu
+        );
+      }
+
+      // Check for confirmation if needed
+      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
+      
+      if (!confirmed) {
+        // Revert the change
+        this.selectedBusinessUnits = previousState;
+        // The checkbox state will be reverted by revertFilterChange
+      } else {
+        // Update UI elements
+        this.updateBusinessUnitDisplay();
+        this.updateSelectAllBusinessUnitState();
       }
     },
 
@@ -154,6 +272,33 @@ document.addEventListener("alpine:init", () => {
       this.updateBusinessUnitDisplay();
       this.updateSelectAllBusinessUnitState();
       this.updateFilters();
+    },
+
+    async toggleAllBusinessUnitsWithConfirmation(selectAll) {
+      // Store previous state
+      const previousState = [...this.selectedBusinessUnits];
+      
+      // Apply the change temporarily
+      if (selectAll) {
+        this.selectedBusinessUnits = [...this.businessUnits];
+      } else {
+        this.selectedBusinessUnits = [];
+      }
+
+      // Check for confirmation if needed
+      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
+      
+      if (!confirmed) {
+        // Revert the change
+        this.selectedBusinessUnits = previousState;
+        // The UI will be reverted by revertFilterChange
+      } else {
+        // Update checkboxes
+        document.querySelectorAll(".bu-checkbox").forEach((checkbox) => {
+          checkbox.checked = selectAll;
+        });
+        this.updateBusinessUnitDisplay();
+      }
     },
 
     toggleAllBusinessUnits(selectAll) {
@@ -224,7 +369,7 @@ document.addEventListener("alpine:init", () => {
       this.updateFilters();
     },
 
-    // Customer Methods
+    // Customer Methods (Enhanced)
     updateCustomerOptions() {
       const customerOptions = document.getElementById("customer-options");
       if (customerOptions) {
@@ -236,7 +381,7 @@ document.addEventListener("alpine:init", () => {
         type="checkbox"
         value="${customerObj.FinalCustomer}"
         class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-        onchange="toggleCustomer('${customerObj.FinalCustomer}', this.checked)"
+        onchange="toggleCustomerWithConfirmation('${customerObj.FinalCustomer}', this.checked)"
         ${
           this.selectedCustomers.includes(customerObj.FinalCustomer)
             ? "checked"
@@ -252,6 +397,36 @@ document.addEventListener("alpine:init", () => {
         this.updateCustomerDisplay();
       }
     },
+
+    async toggleCustomerWithConfirmation(customer, isChecked) {
+      // Store previous state
+      const previousState = [...this.selectedCustomers];
+      
+      // Apply the change temporarily
+      if (isChecked) {
+        if (!this.selectedCustomers.includes(customer)) {
+          this.selectedCustomers.push(customer);
+        }
+      } else {
+        this.selectedCustomers = this.selectedCustomers.filter(
+          (c) => c !== customer
+        );
+      }
+
+      // Check for confirmation if needed
+      const confirmed = await this.updateFiltersWithConfirmation("customer");
+      
+      if (!confirmed) {
+        // Revert the change
+        this.selectedCustomers = previousState;
+        // The checkbox state will be reverted by revertFilterChange
+      } else {
+        // Update UI elements
+        this.updateCustomerDisplay();
+        this.updateSelectAllState();
+      }
+    },
+
     toggleCustomer(customer, isChecked) {
       if (isChecked) {
         if (!this.selectedCustomers.includes(customer)) {
@@ -266,6 +441,35 @@ document.addEventListener("alpine:init", () => {
       this.updateCustomerDisplay();
       this.updateSelectAllState();
       this.updateFilters();
+    },
+
+    async toggleAllCustomersWithConfirmation(selectAll) {
+      // Store previous state
+      const previousState = [...this.selectedCustomers];
+      
+      // Apply the change temporarily
+      if (selectAll) {
+        this.selectedCustomers = [
+          ...this.customers.map((c) => c.FinalCustomer),
+        ];
+      } else {
+        this.selectedCustomers = [];
+      }
+
+      // Check for confirmation if needed
+      const confirmed = await this.updateFiltersWithConfirmation("customer");
+      
+      if (!confirmed) {
+        // Revert the change
+        this.selectedCustomers = previousState;
+        // The UI will be reverted by revertFilterChange
+      } else {
+        // Update checkboxes
+        document.querySelectorAll(".customer-checkbox").forEach((checkbox) => {
+          checkbox.checked = selectAll;
+        });
+        this.updateCustomerDisplay();
+      }
     },
 
     toggleAllCustomers(selectAll) {
@@ -334,7 +538,7 @@ document.addEventListener("alpine:init", () => {
       this.updateFilters();
     },
 
-    // Location Methods
+    // Location Methods (No confirmation needed as these don't reset data)
     updateLocationOptions() {
       const locationOptions = document.getElementById("location-options");
       if (locationOptions) {
@@ -443,7 +647,7 @@ document.addEventListener("alpine:init", () => {
       this.updateFilters();
     },
 
-    // Billable Status Methods
+    // Billable Status Methods (No confirmation needed as these don't reset data)
     updateBillableOptions() {
       const billableOptions = document.getElementById("billable-options");
       if (billableOptions) {
@@ -563,15 +767,27 @@ document.addEventListener("alpine:init", () => {
       this.updateFilters();
     },
 
-    // Single select methods
-    selectMonth(monthKey, monthDisplay = null) {
+    // Single select methods (Enhanced for month selection)
+    async selectMonth(monthKey, monthDisplay = null) {
+      // Store previous state
+      const previousMonth = this.month;
+      
+      // Apply the change temporarily
       this.month = monthKey;
       const displayText = monthDisplay || monthKey;
       const displayElement = document.getElementById("month-display");
       if (displayElement) {
         displayElement.textContent = displayText;
       }
-      this.updateFilters();
+
+      // Check for confirmation if needed
+      const confirmed = await this.updateFiltersWithConfirmation("month");
+      
+      if (!confirmed) {
+        // Revert the change
+        this.month = previousMonth;
+        this.updateMonthDisplay();
+      }
     },
 
     selectBusinessUnit(bu) {
@@ -623,3 +839,20 @@ document.addEventListener("alpine:init", () => {
     },
   });
 });
+
+// Global wrapper functions for enhanced filter methods
+function toggleBusinessUnitWithConfirmation(bu, isChecked) {
+  Alpine.store("filters").toggleBusinessUnitWithConfirmation(bu, isChecked);
+}
+
+function toggleAllBusinessUnitsWithConfirmation(selectAll) {
+  Alpine.store("filters").toggleAllBusinessUnitsWithConfirmation(selectAll);
+}
+
+function toggleCustomerWithConfirmation(customer, isChecked) {
+  Alpine.store("filters").toggleCustomerWithConfirmation(customer, isChecked);
+}
+
+function toggleAllCustomersWithConfirmation(selectAll) {
+  Alpine.store("filters").toggleAllCustomersWithConfirmation(selectAll);
+}
