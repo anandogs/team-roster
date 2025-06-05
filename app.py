@@ -4,7 +4,7 @@ from datetime import datetime
 from models import (
     FilterState,
     generate_sample_direct_costs,
-    bu_to_customers, revenue_data
+    bu_to_customers, 
 )
 import pandas as pd
 
@@ -13,35 +13,36 @@ load_dotenv()
 app = Flask(__name__)
 
 _cached_rac_data = None
+_cached_revenue_data = None
+_cached_plan_data = None
 _cache_timestamp = None
 
-def get_cached_rac_data():
-    global _cached_rac_data, _cache_timestamp
+def get_cached_data():
+    global _cached_rac_data, _cached_revenue_data, _cached_plan_data, _cache_timestamp
 
     current_time = datetime.now()
-    if (_cached_rac_data is None or _cache_timestamp is None or (current_time - _cache_timestamp).seconds > 3600):
-        print("Loading freshRAC data...")
-        _cached_rac_data = get_df()
+    if (_cached_rac_data is None or  _cached_revenue_data is None or _cached_plan_data is None or _cache_timestamp is None  or (current_time - _cache_timestamp).seconds > 3600):
+        print("Loading fresh data...")
+        _cached_rac_data,  _cached_revenue_data, _cached_plan_data = get_data()
         _cache_timestamp = current_time
 
-    return _cached_rac_data
+    return _cached_rac_data, _cached_revenue_data, _cached_plan_data
 
 direct_costs = generate_sample_direct_costs()
 
-# update revenue numbers
-# at the app entry we want to get the users email and accordingly display the data. each user has certain customers they can access.
-
-customer_list = [{'FinalCustomer': 'Sony India Software Centre Pvt Ltd', 'FinalBU': 'US TMTE'}, {'FinalCustomer': 'Aquent LLC', 'FinalBU': 'US TMTE'}]
+customer_list = [{'PrismCustomerGroup': 'Sony', 'FinalBU': 'US TMTE'}, {'PrismCustomerGroup': 'Aquent', 'FinalBU': 'US TMTE'}]
 customer_df = pd.DataFrame(customer_list)
+max_quarter = 'Q1FY2026'
 
-def get_df():
-    df = pd.read_csv('Q1FY2026.csv', low_memory=False)
-    return df
-
+def get_data():
+    cost = pd.read_csv('Q1FY2026.csv', low_memory=False)
+    revenue = pd.read_csv('prism.csv', low_memory=False)
+    plan = pd.read_csv('plan.csv', low_memory=False)
+    return cost, revenue, plan
 
 def load_employees(customer_list: list | None = None):
     try:
-        df = get_cached_rac_data()
+        df, _, _ = get_cached_data()
         relevant_columns = [
             'EmployeeCode', 
             'EmployeeName',
@@ -68,19 +69,21 @@ def load_employees(customer_list: list | None = None):
             'TotalCost_QTR',
         ]
         df = df[relevant_columns]
+        print(df.head())
         columns_to_concat = ['EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
                      'FinalBU', 'FinalCustomer', 'PrismCustomerGroup', 
                      'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN']
         df.loc[:, 'BillableYN'] = df['BillableYN'].map({'Y': True, 'N': False})
-
         grouped_df = df.groupby(columns_to_concat).sum(numeric_only=True).reset_index()
         grouped_df['id'] = grouped_df[columns_to_concat].astype(str).agg(''.join, axis=1)
         grouped_df['CPC_M1'] = grouped_df['TotalCost_M1'] / grouped_df['TotalFTECapped_M1']
         grouped_df['CPC_M2'] = grouped_df['TotalCost_M2'] / grouped_df['TotalFTECapped_M2']
         grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3']
         grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'] / 3
+        
+        print(customer_list)
         if customer_list:
-            filtered_df = grouped_df[grouped_df['FinalCustomer'].isin(customer_list)].reset_index(drop=True)
+            filtered_df = grouped_df[grouped_df['PrismCustomerGroup'].isin(customer_list)].reset_index(drop=True)
         else:
             filtered_df = grouped_df
         total_fte_idx = filtered_df.columns.get_loc('TotalFTECapped_M1')
@@ -121,8 +124,26 @@ def home():
 @app.route('/api/total-employees')
 def get_total_employees():
     """Get all possible employees (the pool)"""
-    _,_,df = load_employees(customer_df['FinalCustomer'].to_list())
+    _,_,df = load_employees(customer_df['PrismCustomerGroup'].to_list())
     return jsonify(df.to_dict(orient='records'))
+
+@app.route('/api/gm-details')
+def get_gm_details():
+    """Get GM details for the portfolio of the user"""
+    cost, revenue, plan = get_cached_data()
+    quarter_formatted = max_quarter[:2]
+    filtered_revenue = revenue[revenue['Quarter'] == quarter_formatted].reset_index(drop=True)
+    filtered_plan = plan[plan['Quarter'] == quarter_formatted].reset_index(drop=True)
+    grouped_filtered_plan = filtered_plan.groupby(['BU', 'Customer']).sum().reset_index()
+    grouped_filtered_plan['GM%'] = grouped_filtered_plan['GM'] / grouped_filtered_plan['Revenue']
+    grouped_filtered_plan.drop(columns=['Revenue', 'GM', 'Quarter'], inplace=True)
+    grouped_filtered_plan['GM%'] = grouped_filtered_plan['GM%'].fillna(0)
+    filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
+    merged_with_plan_gm = pd.merge(filtered_revenue, grouped_filtered_plan, on='Customer', how='left')
+    filtered_plan_gm = merged_with_plan_gm[merged_with_plan_gm['Customer'].isin(customer_df['PrismCustomerGroup'].to_list())].reset_index(drop=True)
+    filtered_plan_gm.drop(columns=['FinancialYear'], inplace=True)
+
+    return jsonify(filtered_plan_gm.to_dict(orient='records'))
 
 @app.route('/api/gm-impact', methods=['POST'])
 def calculate_gm_impact():
@@ -136,7 +157,7 @@ def calculate_gm_impact():
         print("=== GM Impact Calculation ===")
         
         # Get the raw dataframe directly and process it ourselves
-        df = get_cached_rac_data()
+        df, _,_ = get_cached_data()
         print(f"Raw dataframe shape: {df.shape}")
         
         if df.empty:
@@ -334,11 +355,10 @@ def calculate_gm_impact():
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
     """Get all employees data"""
-    _,df,_ = load_employees(customer_df['FinalCustomer'].to_list())
+    _,df,_ = load_employees(customer_df['PrismCustomerGroup'].to_list())
     month = request.args.get('month')
     location = request.args.get('location')
 
-    print(month)
     fte_cols = ['AllocationFTECapped_M1', 'AllocationFTECapped_M2', 'AllocationFTECapped_M3',  'AllocationFTECapped_QTR'] 
     if month == None or month == 'Quarter': # the page just loaded, and it defaults to quarter FTE
         fte_cols_without_month = [col for col in fte_cols if col != 'AllocationFTECapped_QTR']
@@ -355,8 +375,6 @@ def get_employees():
         pass
     else:
         df_reduced = df_reduced[df_reduced['Offshore_Onsite'] == location].reset_index(drop=True)
-
-    print(df_reduced.columns)
 
     return jsonify(df_reduced.to_dict(orient='records'))
 
@@ -389,7 +407,7 @@ def get_customers():
 @app.route('/api/period')
 def get_period():
     """Get Quarter and Month names and numbers for filtering"""
-    df = get_cached_rac_data()
+    df, _, _ = get_cached_data()
     current_quarter = df['Quarter'].unique()[0]
     period_dict = get_quarter_months(current_quarter)
     return period_dict

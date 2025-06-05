@@ -685,14 +685,14 @@
       // Available customers from filters
       get availableCustomers() {
         const customers = Alpine.store("filters")?.customers || [];
-        return customers.map((c) => c.FinalCustomer); // Extract just names for dropdown
+        return customers.map((c) => c.PrismCustomerGroup); // Extract just names for dropdown
       },
 
       get customerToBUMapping() {
         const customers = Alpine.store("filters")?.customers || [];
         const mapping = {};
         customers.forEach((c) => {
-          mapping[c.FinalCustomer] = c.FinalBU;
+          mapping[c.PrismCustomerGroup] = c.FinalBU;
         });
         return mapping;
       },
@@ -1101,7 +1101,7 @@
             return {
               id: employeeId,
               EmployeeName: employee.EmployeeName,
-              FinalCustomer: selectedCustomer,
+              PrismCustomerGroup: selectedCustomer,
               FinalBU: derivedBU,
               Band: employee.Band,
               BillableYN: true, // Set to true by default as requested
@@ -1164,7 +1164,7 @@
             return {
               id: newHireId,
               EmployeeName: `New Hire ${index + 1}`,
-              FinalCustomer: newHire.customer,
+              PrismCustomerGroup: newHire.customer,
               FinalBU:
                 this.customerToBUMapping[newHire.customer] || "Unassigned",
               Band: newHire.band,

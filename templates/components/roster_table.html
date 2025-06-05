@@ -60,7 +60,7 @@
                 roster = [];
             } else if (selectedCustomers.length < allCustomers.length) {
                 roster = roster.filter(emp => 
-                    selectedCustomers.includes(emp.FinalCustomer)
+                    selectedCustomers.includes(emp.PrismCustomerGroup)
                 );
             }
         }
@@ -103,7 +103,7 @@
         if (this.searchQuery) {
             const query = this.searchQuery.toLowerCase();
             roster = roster.filter(emp => {
-                const searchStr = `${emp.EmployeeName} ${emp.Offshore_Onsite} ${emp.FinalCustomer} ${emp.FinalBU}`.toLowerCase();
+                const searchStr = `${emp.EmployeeName} ${emp.Offshore_Onsite} ${emp.PrismCustomerGroup} ${emp.FinalBU}`.toLowerCase();
                 return searchStr.includes(query);
             });
         }
@@ -512,7 +512,7 @@ removeEmployee(employee) {
                   <dt class="text-sm font-medium text-neutral-400">Customer</dt>
                   <dd
                     class="text-sm text-white font-medium mt-1"
-                    x-text="employee.FinalCustomer || 'New Hire'"
+                    x-text="employee.PrismCustomerGroup || 'New Hire'"
                   ></dd>
                 </div>
                 <div>

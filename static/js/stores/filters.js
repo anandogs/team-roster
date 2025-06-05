@@ -122,17 +122,17 @@ document.addEventListener("alpine:init", () => {
       const uniqueCustomers = [];
       const seenCustomers = new Set();
       customersData.forEach((c) => {
-        if (!seenCustomers.has(c.FinalCustomer)) {
-          seenCustomers.add(c.FinalCustomer);
+        if (!seenCustomers.has(c.PrismCustomerGroup)) {
+          seenCustomers.add(c.PrismCustomerGroup);
           uniqueCustomers.push({
-            FinalCustomer: c.FinalCustomer,
+            PrismCustomerGroup: c.PrismCustomerGroup,
             FinalBU: c.FinalBU,
           });
         }
       });
       this.customers = uniqueCustomers;
 
-      this.selectedCustomers = [...this.customers.map(c => c.FinalCustomer)];
+      this.selectedCustomers = [...this.customers.map(c => c.PrismCustomerGroup)];
       this.selectedLocations = [...this.availableLocations];
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
@@ -379,16 +379,16 @@ document.addEventListener("alpine:init", () => {
 <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
     <input
         type="checkbox"
-        value="${customerObj.FinalCustomer}"
+        value="${customerObj.PrismCustomerGroup}"
         class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-        onchange="toggleCustomerWithConfirmation('${customerObj.FinalCustomer}', this.checked)"
+        onchange="toggleCustomerWithConfirmation('${customerObj.PrismCustomerGroup}', this.checked)"
         ${
-          this.selectedCustomers.includes(customerObj.FinalCustomer)
+          this.selectedCustomers.includes(customerObj.PrismCustomerGroup)
             ? "checked"
             : ""
         }
     >
-    <span class="truncate">${customerObj.FinalCustomer}</span>
+    <span class="truncate">${customerObj.PrismCustomerGroup}</span>
 </label>
         `
           )
@@ -450,7 +450,7 @@ document.addEventListener("alpine:init", () => {
       // Apply the change temporarily
       if (selectAll) {
         this.selectedCustomers = [
-          ...this.customers.map((c) => c.FinalCustomer),
+          ...this.customers.map((c) => c.PrismCustomerGroup),
         ];
       } else {
         this.selectedCustomers = [];
@@ -475,7 +475,7 @@ document.addEventListener("alpine:init", () => {
     toggleAllCustomers(selectAll) {
       if (selectAll) {
         this.selectedCustomers = [
-          ...this.customers.map((c) => c.FinalCustomer),
+          ...this.customers.map((c) => c.PrismCustomerGroup),
         ];
       } else {
         this.selectedCustomers = [];

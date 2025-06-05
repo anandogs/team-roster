@@ -125,7 +125,7 @@ document.addEventListener("alpine:init", () => {
         );
         gmCalculationData.billableYN = employeeData.BillableYN;
         gmCalculationData.finalBU = employeeData.FinalBU;
-        gmCalculationData.finalCustomer = employeeData.FinalCustomer;
+        gmCalculationData.PrismCustomerGroup = employeeData.PrismCustomerGroup;
       } else {
         // For EDIT_FTE and REMOVE_EMPLOYEE, look up employee details
         const employee = this.findEmployeeDetails(employeeId);
@@ -138,7 +138,7 @@ document.addEventListener("alpine:init", () => {
           );
           gmCalculationData.billableYN = employee.BillableYN;
           gmCalculationData.finalBU = employee.FinalBU;
-          gmCalculationData.finalCustomer = employee.FinalCustomer;
+          gmCalculationData.PrismCustomerGroup = employee.PrismCustomerGroup;
         }
       }
 

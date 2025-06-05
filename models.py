@@ -7,7 +7,7 @@ class Employee(BaseModel):
     EmployeeName: str
     Band: str
     FinalBU: str
-    FinalCustomer: str
+    PrismCustomerGroup: str
     AllocationFTECapped_M1: float
     AllocationFTECapped_M2: float
     AllocationFTECapped_M3: float
