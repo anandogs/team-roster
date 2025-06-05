@@ -1,34 +1,56 @@
-<div class="border-neutral-700 bg-gradient-to-br from-neutral-900 to-neutral-800 shadow-lg rounded-lg mt-6">
+<div
+  class="border-neutral-700 bg-gradient-to-br from-neutral-900 to-neutral-800 shadow-lg rounded-lg mt-6"
+>
   <div class="pt-6 px-6 pb-6">
     <h3 class="mb-4 text-xl font-bold text-white">Gross Margin Summary</h3>
 
     <div class="space-y-6">
       <div class="space-y-3">
-        <div class="flex items-center justify-between rounded-md bg-neutral-800 p-3">
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
           <span class="text-sm font-medium text-neutral-300">Revenue</span>
-          <span class="text-lg font-bold text-neutral-100" id="revenue">$0</span>
+          <span class="text-lg font-bold text-neutral-100" id="revenue"
+            >$0</span
+          >
         </div>
-        <div class="flex items-center justify-between rounded-md bg-neutral-800 p-3">
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
           <span class="text-sm font-medium text-neutral-300">Starting GM</span>
-          <span class="text-lg font-bold text-neutral-100" id="starting-gm">0%</span>
+          <span class="text-lg font-bold text-neutral-100" id="starting-gm"
+            >0%</span
+          >
         </div>
-        <div class="flex items-center justify-between rounded-md bg-neutral-800 p-3">
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
           <span class="text-sm font-medium text-neutral-300">Current GM</span>
           <span class="text-lg font-bold" id="current-gm">0%</span>
         </div>
-        <div class="flex items-center justify-between rounded-md bg-neutral-800 p-3">
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
           <span class="text-sm font-medium text-neutral-300">Plan GM</span>
-          <span class="text-lg font-bold text-neutral-100" id="plan-gm">0%</span>
+          <span class="text-lg font-bold text-neutral-100" id="plan-gm"
+            >0%</span
+          >
         </div>
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <span class="text-sm font-medium text-neutral-300">Progress to Plan</span>
+          <span class="text-sm font-medium text-neutral-300"
+            >Progress to Plan</span
+          >
           <span class="text-sm font-bold" id="progress-text">0%</span>
         </div>
         <div class="h-3 rounded-full bg-neutral-700">
-          <div class="h-full rounded-full" id="progress-bar" style="width: 0%"></div>
+          <div
+            class="h-full rounded-full"
+            id="progress-bar"
+            style="width: 0%"
+          ></div>
         </div>
       </div>
     </div>
@@ -36,56 +58,130 @@
 </div>
 
 <script>
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value * 1000);
-}
+  function formatCurrency(value) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value * 1000);
+  }
 
-function getProgressColor(percentage) {
-  if (percentage >= 100) return "bg-emerald-500";
-  if (percentage >= 80) return "bg-amber-500";
-  return "bg-rose-500";
-}
+  function getProgressColor(percentage) {
+    if (percentage >= 100) return "bg-emerald-500";
+    if (percentage >= 80) return "bg-amber-500";
+    return "bg-rose-500";
+  }
 
-function getTextColor(currentGM, planGM) {
-  if (currentGM >= planGM) return "text-emerald-400";
-  if (currentGM >= 60) return "text-amber-400";
-  return "text-rose-400";
-}
+  function getTextColor(currentGM, planGM) {
+    if (currentGM >= planGM) return "text-emerald-400";
+    if (currentGM >= 60) return "text-amber-400";
+    return "text-rose-400";
+  }
 
-function updateGMSummary() {
-  fetch('/api/gm-state')
-    .then(res => res.json())
-    .then(data => {
-      const { startingGM, currentGM, planGM, revenue } = data;
-      const progressPercentage = Math.min(100, (currentGM / planGM) * 100);
+  function fetchGMDetails() {
+    fetch("/api/gm-details")
+      .then((res) => res.json())
+      .then((data) => {
+        gmDetailsData = data; // Store the full dataset
+        updateFilteredGMData(); // Apply current filters
+      })
+      .catch((error) => {
+        console.error("Error fetching GM details:", error);
+      });
+  }
 
-      // Update revenue
-      document.getElementById('revenue').textContent = formatCurrency(revenue);
-      
-      // Update GM values
-      document.getElementById('starting-gm').textContent = `${startingGM.toFixed(1)}%`;
-      document.getElementById('current-gm').textContent = `${currentGM.toFixed(1)}%`;
-      document.getElementById('current-gm').className = `text-lg font-bold ${getTextColor(currentGM, planGM)}`;
-      document.getElementById('plan-gm').textContent = `${planGM.toFixed(1)}%`;
+  function updateFilteredGMData() {
+    const filters = Alpine.store("filters");
+    if (!filters || !gmDetailsData.length) return;
 
-      // Update progress bar
-      document.getElementById('progress-text').textContent = `${progressPercentage.toFixed(0)}%`;
-      document.getElementById('progress-text').className = `text-sm font-bold ${getTextColor(progressPercentage, 100)}`;
-      
-      const progressBar = document.getElementById('progress-bar');
-      progressBar.style.width = `${progressPercentage}%`;
-      progressBar.className = `h-full rounded-full ${getProgressColor(progressPercentage)}`;
+    let filteredData = gmDetailsData.filter((item) => {
+      // Filter by month/period
+      if (filters.month && filters.month !== "Quarter") {
+        // Get the actual month name from the periodData and extract just the month part
+        const targetMonthFull = filters.periodData[filters.month]; // "May 25"
+        const targetMonth = targetMonthFull
+          ? targetMonthFull.split(" ")[0]
+          : null; // "May"
+
+        if (targetMonth && item.Month !== targetMonth) return false;
+      }
+      // If Quarter is selected, no month filtering is applied
+
+      // Filter by customers
+      if (filters.selectedCustomers.length === 0) {
+        return false; // No customers selected = show nothing
+      }
+      if (filters.selectedCustomers.length < filters.customers.length) {
+        if (!filters.selectedCustomers.includes(item.Customer)) return false;
+      }
+
+      // Filter by business units
+      if (filters.selectedBusinessUnits.length === 0) {
+        return false; // No business units selected = show nothing
+      }
+      if (filters.selectedBusinessUnits.length < filters.businessUnits.length) {
+        if (!filters.selectedBusinessUnits.includes(item.BU)) return false;
+      }
+      return true;
     });
-}
 
-// Update GM summary on page load
-updateGMSummary();
+    const totalRevenue =
+      filteredData.reduce((sum, item) => sum + (item.Total_Revenue || 0), 0) *
+      1000000;
+    document.getElementById("revenue").textContent =
+      "$" + Math.floor(totalRevenue).toLocaleString("en-US");
+  }
 
-// Update GM summary every 30 seconds
-setInterval(updateGMSummary, 30000);
-</script> 
+  let gmDetailsData = [];
+
+  function updateGMSummary() {
+    fetch("/api/gm-state")
+      .then((res) => res.json())
+      .then((data) => {
+        const { startingGM, currentGM, planGM, revenue } = data;
+        const progressPercentage = Math.min(100, (currentGM / planGM) * 100);
+
+        // Update revenue
+        // document.getElementById("revenue").textContent =
+        //   formatCurrency(revenue);
+
+        // Update GM values
+        document.getElementById(
+          "starting-gm"
+        ).textContent = `${startingGM.toFixed(1)}%`;
+        document.getElementById(
+          "current-gm"
+        ).textContent = `${currentGM.toFixed(1)}%`;
+        document.getElementById(
+          "current-gm"
+        ).className = `text-lg font-bold ${getTextColor(currentGM, planGM)}`;
+        document.getElementById("plan-gm").textContent = `${planGM.toFixed(
+          1
+        )}%`;
+
+        // Update progress bar
+        document.getElementById(
+          "progress-text"
+        ).textContent = `${progressPercentage.toFixed(0)}%`;
+        document.getElementById(
+          "progress-text"
+        ).className = `text-sm font-bold ${getTextColor(
+          progressPercentage,
+          100
+        )}`;
+
+        const progressBar = document.getElementById("progress-bar");
+        progressBar.style.width = `${progressPercentage}%`;
+        progressBar.className = `h-full rounded-full ${getProgressColor(
+          progressPercentage
+        )}`;
+      });
+  }
+
+  // Update GM summary on page load
+  updateGMSummary();
+  fetchGMDetails();
+  // Update GM summary every 30 seconds
+  window.addEventListener("employees-updated", updateFilteredGMData);
+</script>

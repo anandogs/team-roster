@@ -143,6 +143,33 @@ def get_gm_details():
     filtered_plan_gm = merged_with_plan_gm[merged_with_plan_gm['Customer'].isin(customer_df['PrismCustomerGroup'].to_list())].reset_index(drop=True)
     filtered_plan_gm.drop(columns=['FinancialYear'], inplace=True)
 
+    grouped_gm = cost.groupby(['FinalBU', 'PrismCustomerGroup'])[
+        [
+            'AllocationCost_M1',
+            'AllocationCost_M2',
+            'AllocationCost_M3',
+        ]
+    ].sum().reset_index()
+
+    melted_gm = grouped_gm.melt(
+        id_vars=['FinalBU', 'PrismCustomerGroup'],
+        value_vars=['AllocationCost_M1', 'AllocationCost_M2', 'AllocationCost_M3'],
+        var_name='Month',
+        value_name='AllocationCost'
+    )
+    # Convert 'Month' from 'AllocationCost_M1' to 'M1', etc.
+    melted_gm['Month'] = melted_gm['Month'].str.extract(r'AllocationCost_(M\d)')
+    month_map = get_quarter_months(max_quarter)
+    melted_gm['MonthName'] = melted_gm['Month'].map(month_map)
+    melted_gm['Month'] = melted_gm['MonthName'].str.split(' ').str[0]
+    melted_gm.drop(columns=['MonthName'], inplace=True)
+    melted_gm.rename(columns={'PrismCustomerGroup': 'Customer', 'FinalBU': 'BU'}, inplace=True)
+    with_allocation_cost = pd.merge(
+        filtered_plan_gm, melted_gm, on=['BU', 'Customer', 'Month'], how='left'
+    )
+    with_allocation_cost['AllocationCost'] = with_allocation_cost['AllocationCost'] / 10**6
+    with_allocation_cost['ForecastedGM'] = with_allocation_cost['Total_Revenue'] - with_allocation_cost['AllocationCost']
+    with_allocation_cost.drop(columns=['AllocationCost'], inplace=True)
     return jsonify(filtered_plan_gm.to_dict(orient='records'))
 
 @app.route('/api/gm-impact', methods=['POST'])
