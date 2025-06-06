@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 from datetime import datetime
@@ -9,6 +10,8 @@ from models import (
 import pandas as pd
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -30,6 +33,13 @@ direct_costs = generate_sample_direct_costs()
 customer_list = [{'PrismCustomerGroup': 'Sony', 'FinalBU': 'US TMTE'}, {'PrismCustomerGroup': 'Aquent', 'FinalBU': 'US TMTE'}]
 customer_df = pd.DataFrame(customer_list)
 max_quarter = 'Q1FY2026'
+
+def get_current_user():
+    return {
+        'name': request.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', 'Unknown'),
+        'email': request.headers.get('X-MS-CLIENT-PRINCIPAL-ID', 'Unknown'),
+        'provider': request.headers.get('X-MS-CLIENT-PRINCIPAL-IDP', 'Unknown')
+    }
 
 def get_data():
     cost = pd.read_csv('Q1FY2026.csv', low_memory=False)
@@ -111,6 +121,9 @@ def save_employee_data(df):
 
 @app.route('/')
 def home():
+    user = get_current_user()
+    app.logger.info(f"USER ACCESS - Name: {user['name']}, Email: {user['email']}, IP: {request.remote_addr}")
+    app.logger.info(f"ALL HEADERS: {dict(request.headers)}")
     return render_template('index.html')
 
 @app.route('/api/total-employees')
