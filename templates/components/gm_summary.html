@@ -179,6 +179,8 @@
         return 0;
       }
 
+
+      // Send the entire audit log to get GM impact calculations
       const response = await fetch("/api/gm-impact", {
         method: "POST",
         headers: {
@@ -487,8 +489,11 @@
   // Update GM summary on page load
   updateGMSummary();
   fetchGMDetails();
-(async () => {
-  const initialImpact = await calculateTotalGMImpact();
-  await updateFilteredGMData(initialImpact);
-})();
+document.addEventListener('alpine:init', () => {
+  // Initialize after Alpine stores are ready
+  setTimeout(async () => {
+    const initialImpact = await calculateTotalGMImpact();
+    await updateFilteredGMData(initialImpact);
+  }, 100);
+});
 </script>
