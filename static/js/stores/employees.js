@@ -149,8 +149,6 @@ document.addEventListener("alpine:init", () => {
       currentLog.push(entry);
 
       try {
-        // Call GM impact calculation before updating frontend
-        console.log("Calling GM impact calculation...");
         const response = await fetch("/api/gm-impact", {
           method: "POST",
           headers: {

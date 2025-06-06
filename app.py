@@ -185,24 +185,19 @@ def calculate_gm_impact():
     """Calculate GM impact for audit log entries"""
     try:
         data = request.get_json()
+        print(data)
         
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        print("=== GM Impact Calculation ===")
-        
-        # Get the raw dataframe directly and process it ourselves
         df = get_cached_data()
-        print(f"Raw dataframe shape: {df.shape}")
         
         if df.empty:
             return jsonify({'error': 'No data available in CSV file'}), 500
         
-        # Initialize our lookup dictionaries
         employee_cpc_lookup = {}
         band_location_cpc_lookup = {}
         
-        # Filter for the relevant columns we need
         relevant_columns = [
             'EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
             'FinalBU', 'FinalCustomer', 'PrismCustomerGroup',
@@ -212,20 +207,16 @@ def calculate_gm_impact():
             'TotalCost_M1', 'TotalCost_M2', 'TotalCost_M3', 'TotalCost_QTR'
         ]
         
-        # Check if all required columns exist
         missing_cols = [col for col in relevant_columns if col not in df.columns]
         if missing_cols:
-            print(f"Missing columns: {missing_cols}")
             return jsonify({'error': f'Missing required columns: {missing_cols}'}), 500
         
         df_subset = df[relevant_columns].copy()
         
-        # Group by employee-level columns to get aggregated data per employee
         grouping_columns = ['EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
                            'FinalBU', 'FinalCustomer', 'PrismCustomerGroup', 
                            'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN']
         
-        print("Grouping data by employee...")
         grouped_df = df_subset.groupby(grouping_columns).agg({
             'AllocationFTECapped_M1': 'sum',
             'AllocationFTECapped_M2': 'sum', 
@@ -243,25 +234,19 @@ def calculate_gm_impact():
         
         print(f"Grouped dataframe shape: {grouped_df.shape}")
         
-        # Calculate CPC (Cost Per Capita) for each employee
         print("Calculating CPCs...")
         grouped_df['CPC_M1'] = grouped_df['TotalCost_M1'] / grouped_df['TotalFTECapped_M1'].replace(0, 1)
         grouped_df['CPC_M2'] = grouped_df['TotalCost_M2'] / grouped_df['TotalFTECapped_M2'].replace(0, 1)
         grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3'].replace(0, 1)
         grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'].replace(0, 1) / 3
         
-        # Replace any infinite values with 0
         grouped_df = grouped_df.replace([float('inf'), float('-inf')], 0)
         
-        # Build employee CPC lookup using EmployeeCode
-        print("Building employee CPC lookup...")
         for _, row in grouped_df.iterrows():
             employee_code = str(int(row['EmployeeCode']))  # Convert to string for consistency
             cpc_qtr = row['CPC_QTR']
             employee_cpc_lookup[employee_code] = cpc_qtr
         
-        # Build band + location CPC lookup for new hires
-        print("Building band+location CPC lookup...")
         band_location_groups = grouped_df.groupby(['Band', 'Offshore_Onsite']).agg({
             'TotalCost_QTR': 'sum',
             'TotalFTECapped_QTR': 'sum'
@@ -273,22 +258,11 @@ def calculate_gm_impact():
             total_cost = row['TotalCost_QTR']
             total_fte = row['TotalFTECapped_QTR']
             
-            # Calculate average CPC for this band + location combination
             avg_cpc = (total_cost / total_fte / 3) if total_fte > 0 else 0
             key = f"{band}_{location}"
             band_location_cpc_lookup[key] = avg_cpc
         
-        print(f"Employee CPC lookup entries: {len(employee_cpc_lookup)}")
-        print(f"Band+Location CPC lookup entries: {len(band_location_cpc_lookup)}")
-        
-        # Sample some data for verification
-        sample_employees = list(employee_cpc_lookup.items())[:5]
-        print(f"Sample employee CPCs: {sample_employees}")
-        
-        sample_band_location = list(band_location_cpc_lookup.items())[:5]
-        print(f"Sample band+location CPCs: {sample_band_location}")
-        
-        # Process the latest entry
+        entry = None  # Ensure entry is always defined
         if 'latestEntry' in data:
             entry = data['latestEntry']
             gmData = entry.get('gmData', {})
@@ -370,6 +344,12 @@ def calculate_gm_impact():
         
         # Update the audit log with GM impact data
         updated_audit_log = data.get('auditLog', [])
+
+        if entry is not None:
+            for log_entry in updated_audit_log:
+                if log_entry.get('id') == entry.get('id'):
+                    log_entry['gmImpact'] = entry['gmImpact']
+                    break
         
         return jsonify({
             'success': True,
