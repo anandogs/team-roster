@@ -162,7 +162,6 @@ document.addEventListener("alpine:init", () => {
 
         if (response.ok) {
           const gmResult = await response.json();
-          console.log("GM impact calculation result:", gmResult);
 
           // Use the updated audit log with GM impact data
           const updatedAuditLog = gmResult.auditLog || currentLog;
@@ -174,11 +173,7 @@ document.addEventListener("alpine:init", () => {
           // Log the GM impact for the latest entry
           const latestEntryWithGM = updatedAuditLog[updatedAuditLog.length - 1];
           if (latestEntryWithGM?.gmImpact) {
-            console.log("GM Impact calculated:", {
-              costImpact: latestEntryWithGM.gmImpact.costImpact,
-              cpcUsed: latestEntryWithGM.gmImpact.cpcUsed,
-              fteChange: latestEntryWithGM.gmImpact.fteChange,
-            });
+            console.log("GM Impact calculated:");
           }
         } else {
           console.error("GM impact calculation failed:", response.status);

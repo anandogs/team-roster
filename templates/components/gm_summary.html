@@ -266,10 +266,14 @@
       return true;
     });
 
-    const totalGMImpact =
+    let totalGMImpact =
       gmImpactFromAuditLog !== null
         ? gmImpactFromAuditLog
         : await calculateTotalGMImpact();
+
+        if (filters.month === "Quarter") {
+      totalGMImpact = totalGMImpact * 3;
+    }
 
     const totalRevenue =
       filteredData.reduce((sum, item) => sum + (item.Total_Revenue || 0), 0) *
