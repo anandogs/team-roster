@@ -4,9 +4,14 @@
     searchQuery: '',
     editingEmployee: null,
     tempFte: null,
+    currentPage: 1,
+    itemsPerPage: 12,
 
     init() {
         this.waitForFiltersStoreReady();
+this.$watch('searchQuery', () => {
+    this.currentPage = 1;
+});
     },
 
     async waitForFiltersStoreReady() {
@@ -35,7 +40,39 @@
         this.$store.filters.updateLocationOptions();
         this.$store.filters.updateBillableOptions();
     },
+get totalPages() {
+    return Math.ceil(this.filteredEmployees.length / this.itemsPerPage);
+},
 
+get paginatedEmployees() {
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    const end = start + this.itemsPerPage;
+    return this.filteredEmployees.slice(start, end);
+},
+
+get showingRange() {
+    const start = (this.currentPage - 1) * this.itemsPerPage + 1;
+    const end = Math.min(this.currentPage * this.itemsPerPage, this.filteredEmployees.length);
+    return { start, end, total: this.filteredEmployees.length };
+},
+
+goToPage(page) {
+    if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page;
+    }
+},
+
+nextPage() {
+    if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+    }
+},
+
+prevPage() {
+    if (this.currentPage > 1) {
+        this.currentPage--;
+    }
+},
     get isLoading() {
         return $store.employees.loading;
     },
@@ -391,7 +428,7 @@ removeEmployee(employee) {
 
       <!-- Employee Cards Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <template x-for="employee in filteredEmployees" :key="employee.id">
+        <template x-for="employee in paginatedEmployees" :key="employee.id">
           <div
             class="bg-neutral-800 border border-neutral-700 rounded-xl p-6 hover:border-neutral-600 transition-colors duration-200"
           >
@@ -557,6 +594,48 @@ removeEmployee(employee) {
             </div>
           </div>
         </template>
+      </div>
+      <div x-show="totalPages > 1" class="mt-8">
+        <!-- Results info on top -->
+        <div class="text-center mb-4">
+          <span class="text-sm text-neutral-400">
+            Showing <span x-text="showingRange.start"></span> to
+            <span x-text="showingRange.end"></span> of
+            <span x-text="showingRange.total"></span> employees
+          </span>
+        </div>
+
+        <!-- Pagination controls centered -->
+        <div class="flex items-center justify-center gap-1">
+          <button
+            @click="prevPage()"
+            :disabled="currentPage === 1"
+            class="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Previous
+          </button>
+
+          <template
+            x-for="page in Array.from({length: totalPages}, (_, i) => i + 1)"
+            :key="page"
+          >
+            <button
+              @click="goToPage(page)"
+              :class="page === currentPage ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'"
+              class="px-3 py-2 text-sm transition-colors rounded"
+            >
+              <span x-text="page"></span>
+            </button>
+          </template>
+
+          <button
+            @click="nextPage()"
+            :disabled="currentPage === totalPages"
+            class="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Next →
+          </button>
+        </div>
       </div>
     </div>
   </template>
