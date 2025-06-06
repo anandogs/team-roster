@@ -24,6 +24,64 @@
         </div>
         <div
           class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+          x-data="{ editing: false, odcValue: 0, originalValue: 0 }"
+          x-init="
+    $nextTick(() => {
+      const input = document.getElementById('odc-input');
+      if (input) {
+        odcValue = parseFloat(input.value) || 0;
+        originalValue = odcValue;
+      }
+    })
+  "
+        >
+          <span class="text-sm font-medium text-neutral-300">ODC</span>
+          <div class="flex items-center gap-1">
+            <input
+              type="number"
+              id="odc-input"
+              class="w-20 bg-neutral-700 text-right text-lg font-bold text-neutral-100 rounded px-2 py-1 focus:outline-none"
+              min="0"
+              max="100"
+              step="0.1"
+              x-model="odcValue"
+              @focus="editing = true"
+              :readonly="!editing"
+            />
+            <span class="text-lg font-bold text-neutral-100">%</span>
+            <template x-if="editing">
+              <div class="flex flex-col gap-0 ml-1">
+                <button
+                  class="text-green-400 hover:text-green-300 transition-colors text-xs leading-none"
+                  @click="
+        editing = false;
+        originalValue = odcValue;
+        $nextTick(() => {
+          document.getElementById('odc-input').blur();
+          window.dispatchEvent(new CustomEvent('odc-changed', { detail: { value: odcValue } }));
+        });
+      "
+                  title="Save"
+                >
+                  ✓
+                </button>
+                <button
+                  class="text-neutral-400 hover:text-white transition-colors text-xs leading-none"
+                  @click="
+        odcValue = originalValue;
+        editing = false;
+        $nextTick(() => document.getElementById('odc-input').blur());
+      "
+                  title="Cancel"
+                >
+                  ✕
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
         >
           <span class="text-sm font-medium text-neutral-300">Current GM</span>
           <span class="text-lg font-bold" id="current-gm">0%</span>
@@ -58,6 +116,13 @@
 </div>
 
 <script>
+  let userEnteredODC = 0;
+
+  window.addEventListener("odc-changed", function (e) {
+    userEnteredODC = e.detail.value;
+    updateFilteredGMData();
+  });
+
   function formatCurrency(value) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -131,9 +196,169 @@
       1000000;
     document.getElementById("revenue").textContent =
       "$" + Math.floor(totalRevenue).toLocaleString("en-US");
+
+    animateNumber("revenue", totalRevenue, false, true);
+
+    const allocationCost = filteredData.reduce(
+      (sum, item) => sum + (item.AllocationCost || 0),
+      0
+    );
+    const odc =
+      filteredData.reduce(
+        (sum, item) => sum + (item.OtherDirectCosts || 0),
+        0
+      ) * 1000000;
+    const forecastedGM = totalRevenue - allocationCost;
+    const forecastedGMPercentage = (forecastedGM / totalRevenue) * 100;
+
+    // Set ODC input value after odc is calculated
+
+    const startingODCPerc = (odc / totalRevenue) * 100;
+
+    if (userEnteredODC) {
+      odcPerc = userEnteredODC;
+    } else {
+      odcPerc = isNaN(startingODCPerc) ? 0 : startingODCPerc.toFixed(1);
+    }
+
+    document.getElementById("starting-gm").textContent =
+      forecastedGMPercentage.toFixed(1) + "%";
+    animateNumber("starting-gm", forecastedGMPercentage, true);
+
+    const odcInput = document.getElementById("odc-input");
+    if (odcInput) {
+      odcInput.value = odcPerc;
+    }
+
+    // current GM
+    // calculate difference between odcPerc and startingODCPerc
+    const odcDiff = startingODCPerc - odcPerc;
+    let currentGMPercentage = forecastedGMPercentage + odcDiff;
+
+    document.getElementById("current-gm").textContent =
+      currentGMPercentage.toFixed(1) + "%";
+
+    animateNumber("current-gm", currentGMPercentage, true);
+
+    // Calculate blended PlanGM% (weighted average by PlanRevenue)
+    let totalPlanRevenue = 0;
+    let weightedPlanGM = 0;
+    filteredData.forEach((item) => {
+      const planRevenue = item.PlanRevenue || 0;
+      const planGM = item["PlanGM%"] || 0;
+      totalPlanRevenue += planRevenue;
+      weightedPlanGM += planGM * planRevenue;
+    });
+    let blendedPlanGM = 0;
+    if (totalPlanRevenue > 0) {
+      blendedPlanGM = (weightedPlanGM / totalPlanRevenue) * 100;
+    }
+
+    // Set Plan GM in the DOM
+    document.getElementById("plan-gm").textContent =
+      blendedPlanGM.toFixed(1) + "%";
+    animateNumber("plan-gm", blendedPlanGM, true);
+
+    // --- Progress to Plan Calculation and Animation ---
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-text");
+    let progressPercentage = 0;
+    if (blendedPlanGM > 0) {
+      progressPercentage = (currentGMPercentage / blendedPlanGM) * 100;
+    }
+    // Clamp bar width to 0-100, but allow text to go above 100%
+    const barWidth = Math.max(0, Math.min(progressPercentage, 100));
+
+    // Animate the progress bar width
+    function animateProgressBar(targetWidth) {
+      const startWidth = parseFloat(progressBar.style.width) || 0;
+      const duration = 800;
+      const startTime = performance.now();
+
+      function updateBar(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentWidth = startWidth + (targetWidth - startWidth) * easeOut;
+      progressBar.style.width = `${currentWidth}%`;
+      if (progress < 1) {
+        requestAnimationFrame(updateBar);
+      }
+      }
+      requestAnimationFrame(updateBar);
+    }
+
+    // Animate the progress text with % at the end
+    function animateProgressText(elementId, targetValue) {
+      const element = document.getElementById(elementId);
+      const startValue = 0;
+      const duration = 800;
+      const startTime = performance.now();
+
+      function updateText(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentValue = startValue + (targetValue - startValue) * easeOut;
+      element.textContent = `${currentValue.toFixed(0)}%`;
+      if (progress < 1) {
+        requestAnimationFrame(updateText);
+      }
+      }
+      requestAnimationFrame(updateText);
+    }
+
+    animateProgressText("progress-text", progressPercentage);
+
+    // Set color: green if ≥ 95%, else use your existing logic
+    let progressColor = "bg-rose-500";
+    if (progressPercentage >= 95) {
+      progressColor = "bg-emerald-500";
+    } else if (progressPercentage >= 80) {
+      progressColor = "bg-amber-500";
+    }
+    progressBar.className = `h-full rounded-full ${progressColor}`;
+
+    animateProgressBar(barWidth);
   }
 
   let gmDetailsData = [];
+
+  function animateNumber(
+    elementId,
+    targetValue,
+    isPercentage = false,
+    isCurrency = false
+  ) {
+    const element = document.getElementById(elementId);
+    const startValue = 0;
+    const duration = 800; // 800ms animation
+    const startTime = performance.now();
+
+    function updateNumber(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Easing function for smooth animation
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentValue = startValue + (targetValue - startValue) * easeOut;
+
+      if (isCurrency) {
+        element.textContent =
+          "$" + Math.floor(currentValue).toLocaleString("en-US");
+      } else if (isPercentage) {
+        element.textContent = currentValue.toFixed(1) + "%";
+      } else {
+        element.textContent = Math.floor(currentValue);
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(updateNumber);
+      }
+    }
+
+    requestAnimationFrame(updateNumber);
+  }
 
   function updateGMSummary() {
     fetch("/api/gm-state")
@@ -147,9 +372,6 @@
         //   formatCurrency(revenue);
 
         // Update GM values
-        document.getElementById(
-          "starting-gm"
-        ).textContent = `${startingGM.toFixed(1)}%`;
         document.getElementById(
           "current-gm"
         ).textContent = `${currentGM.toFixed(1)}%`;
@@ -180,7 +402,7 @@
   }
 
   // Update GM summary on page load
-  updateGMSummary();
+  updateGMSummary(userEnteredODC);
   fetchGMDetails();
   // Update GM summary every 30 seconds
   window.addEventListener("employees-updated", updateFilteredGMData);

@@ -18,15 +18,15 @@ _cached_plan_data = None
 _cache_timestamp = None
 
 def get_cached_data():
-    global _cached_rac_data, _cached_revenue_data, _cached_plan_data, _cache_timestamp
+    global _cached_rac_data, _cache_timestamp
 
     current_time = datetime.now()
-    if (_cached_rac_data is None or  _cached_revenue_data is None or _cached_plan_data is None or _cache_timestamp is None  or (current_time - _cache_timestamp).seconds > 3600):
+    if (_cached_rac_data is None or _cache_timestamp is None  or (current_time - _cache_timestamp).seconds > 3600):
         print("Loading fresh data...")
-        _cached_rac_data,  _cached_revenue_data, _cached_plan_data = get_data()
+        _cached_rac_data = get_data()
         _cache_timestamp = current_time
 
-    return _cached_rac_data, _cached_revenue_data, _cached_plan_data
+    return _cached_rac_data
 
 direct_costs = generate_sample_direct_costs()
 
@@ -36,13 +36,12 @@ max_quarter = 'Q1FY2026'
 
 def get_data():
     cost = pd.read_csv('Q1FY2026.csv', low_memory=False)
-    revenue = pd.read_csv('prism.csv', low_memory=False)
-    plan = pd.read_csv('plan.csv', low_memory=False)
-    return cost, revenue, plan
+    
+    return cost
 
 def load_employees(customer_list: list | None = None):
     try:
-        df, _, _ = get_cached_data()
+        df = get_cached_data()
         relevant_columns = [
             'EmployeeCode', 
             'EmployeeName',
@@ -130,14 +129,20 @@ def get_total_employees():
 @app.route('/api/gm-details')
 def get_gm_details():
     """Get GM details for the portfolio of the user"""
-    cost, revenue, plan = get_cached_data()
+    revenue = pd.read_csv('prism.csv', low_memory=False)
+    plan = pd.read_csv('plan.csv', low_memory=False)
+    odc = pd.read_csv('odc.csv', low_memory=False)
+    cost = get_cached_data()
+
     quarter_formatted = max_quarter[:2]
     filtered_revenue = revenue[revenue['Quarter'] == quarter_formatted].reset_index(drop=True)
     filtered_plan = plan[plan['Quarter'] == quarter_formatted].reset_index(drop=True)
+    filtered_plan.drop(columns=['Customer'], inplace=True)
+    filtered_plan.rename(columns={'Prism': 'Customer'}, inplace=True)
     grouped_filtered_plan = filtered_plan.groupby(['BU', 'Customer']).sum().reset_index()
-    grouped_filtered_plan['GM%'] = grouped_filtered_plan['GM'] / grouped_filtered_plan['Revenue']
-    grouped_filtered_plan.drop(columns=['Revenue', 'GM', 'Quarter'], inplace=True)
-    grouped_filtered_plan['GM%'] = grouped_filtered_plan['GM%'].fillna(0)
+    grouped_filtered_plan['PlanGM%'] = (grouped_filtered_plan['PlanRevenue'] - grouped_filtered_plan['PlanCost']) / grouped_filtered_plan['PlanRevenue']
+    grouped_filtered_plan['PlanGM%'] = grouped_filtered_plan['PlanGM%'].fillna(0)
+    grouped_filtered_plan.drop(columns=['PlanCost', 'Quarter', 'RAC'], inplace=True)
     filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
     merged_with_plan_gm = pd.merge(filtered_revenue, grouped_filtered_plan, on='Customer', how='left')
     filtered_plan_gm = merged_with_plan_gm[merged_with_plan_gm['Customer'].isin(customer_df['PrismCustomerGroup'].to_list())].reset_index(drop=True)
@@ -167,10 +172,13 @@ def get_gm_details():
     with_allocation_cost = pd.merge(
         filtered_plan_gm, melted_gm, on=['BU', 'Customer', 'Month'], how='left'
     )
-    with_allocation_cost['AllocationCost'] = with_allocation_cost['AllocationCost'] / 10**6
-    with_allocation_cost['ForecastedGM'] = with_allocation_cost['Total_Revenue'] - with_allocation_cost['AllocationCost']
-    with_allocation_cost.drop(columns=['AllocationCost'], inplace=True)
-    return jsonify(filtered_plan_gm.to_dict(orient='records'))
+    with_odc = pd.merge(
+        with_allocation_cost, odc, on='BU', how='left'
+    )
+    with_odc['OtherDirectCosts'] = with_odc['Total_Revenue'] * with_odc['ODC']
+    with_odc.drop(columns=['ODC'], inplace=True)
+
+    return jsonify(with_odc.to_dict(orient='records'))
 
 @app.route('/api/gm-impact', methods=['POST'])
 def calculate_gm_impact():
@@ -184,7 +192,7 @@ def calculate_gm_impact():
         print("=== GM Impact Calculation ===")
         
         # Get the raw dataframe directly and process it ourselves
-        df, _,_ = get_cached_data()
+        df = get_cached_data()
         print(f"Raw dataframe shape: {df.shape}")
         
         if df.empty:
@@ -434,7 +442,7 @@ def get_customers():
 @app.route('/api/period')
 def get_period():
     """Get Quarter and Month names and numbers for filtering"""
-    df, _, _ = get_cached_data()
+    df = get_cached_data()
     current_quarter = df['Quarter'].unique()[0]
     period_dict = get_quarter_months(current_quarter)
     return period_dict
