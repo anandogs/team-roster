@@ -123,6 +123,18 @@
     updateFilteredGMData();
   });
 
+  // Add these new event listeners after the existing ODC listener
+  window.addEventListener("audit-log-updated", async function () {
+    const totalImpact = await calculateTotalGMImpact();
+
+    await updateFilteredGMData(totalImpact);
+  });
+
+  // Listen for any filter changes that might affect GM
+  window.addEventListener("employees-updated", async function () {
+    const totalImpact = await calculateTotalGMImpact();
+    await updateFilteredGMData(totalImpact);
+  });
   function formatCurrency(value) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -156,7 +168,68 @@
       });
   }
 
-  function updateFilteredGMData() {
+  // New function to calculate total GM impact from audit log
+  async function calculateTotalGMImpact() {
+    try {
+      // Get the current audit log
+      const stored = localStorage.getItem("roster-audit-log");
+      const auditLog = stored ? JSON.parse(stored) : [];
+
+      if (auditLog.length === 0) {
+        return 0;
+      }
+
+      const response = await fetch("/api/gm-impact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          auditLog: auditLog,
+          calculateTotal: true,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Calculate total impact from all entries
+        let totalCostImpact = 0;
+        let impactBreakdown = {
+          additions: 0,
+          removals: 0,
+          edits: 0,
+          totalEntries: 0,
+        };
+
+        result.auditLog.forEach((entry) => {
+          if (entry.gmImpact && entry.gmImpact.costImpact) {
+            const impact = entry.gmImpact.costImpact;
+            totalCostImpact += impact;
+            impactBreakdown.totalEntries++;
+
+            if (entry.action === "ADD_EMPLOYEE") {
+              impactBreakdown.additions += impact;
+            } else if (entry.action === "REMOVE_EMPLOYEE") {
+              impactBreakdown.removals += impact;
+            } else if (entry.action === "EDIT_FTE") {
+              impactBreakdown.edits += impact;
+            }
+          }
+        });
+
+        return totalCostImpact;
+      } else {
+        console.error("Failed to calculate GM impact:", response.status);
+        return 0;
+      }
+    } catch (error) {
+      console.error("Error calculating total GM impact:", error);
+      return 0;
+    }
+  }
+
+  async function updateFilteredGMData(gmImpactFromAuditLog = null) {
     const filters = Alpine.store("filters");
     if (!filters || !gmDetailsData.length) return;
 
@@ -190,6 +263,11 @@
       }
       return true;
     });
+
+    const totalGMImpact =
+      gmImpactFromAuditLog !== null
+        ? gmImpactFromAuditLog
+        : await calculateTotalGMImpact();
 
     const totalRevenue =
       filteredData.reduce((sum, item) => sum + (item.Total_Revenue || 0), 0) *
@@ -233,7 +311,12 @@
     // current GM
     // calculate difference between odcPerc and startingODCPerc
     const odcDiff = startingODCPerc - odcPerc;
-    let currentGMPercentage = forecastedGMPercentage + odcDiff;
+    const gmImpactPercentage = totalGMImpact
+      ? (totalGMImpact / totalRevenue) * 100
+      : 0;
+
+    let currentGMPercentage =
+      forecastedGMPercentage + odcDiff - gmImpactPercentage;
 
     document.getElementById("current-gm").textContent =
       currentGMPercentage.toFixed(1) + "%";
@@ -276,14 +359,14 @@
       const startTime = performance.now();
 
       function updateBar(currentTime) {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const currentWidth = startWidth + (targetWidth - startWidth) * easeOut;
-      progressBar.style.width = `${currentWidth}%`;
-      if (progress < 1) {
-        requestAnimationFrame(updateBar);
-      }
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentWidth = startWidth + (targetWidth - startWidth) * easeOut;
+        progressBar.style.width = `${currentWidth}%`;
+        if (progress < 1) {
+          requestAnimationFrame(updateBar);
+        }
       }
       requestAnimationFrame(updateBar);
     }
@@ -296,14 +379,14 @@
       const startTime = performance.now();
 
       function updateText(currentTime) {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const currentValue = startValue + (targetValue - startValue) * easeOut;
-      element.textContent = `${currentValue.toFixed(0)}%`;
-      if (progress < 1) {
-        requestAnimationFrame(updateText);
-      }
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentValue = startValue + (targetValue - startValue) * easeOut;
+        element.textContent = `${currentValue.toFixed(0)}%`;
+        if (progress < 1) {
+          requestAnimationFrame(updateText);
+        }
       }
       requestAnimationFrame(updateText);
     }
@@ -402,8 +485,10 @@
   }
 
   // Update GM summary on page load
-  updateGMSummary(userEnteredODC);
+  updateGMSummary();
   fetchGMDetails();
-  // Update GM summary every 30 seconds
-  window.addEventListener("employees-updated", updateFilteredGMData);
+(async () => {
+  const initialImpact = await calculateTotalGMImpact();
+  await updateFilteredGMData(initialImpact);
+})();
 </script>

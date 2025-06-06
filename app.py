@@ -22,7 +22,6 @@ def get_cached_data():
 
     current_time = datetime.now()
     if (_cached_rac_data is None or _cache_timestamp is None  or (current_time - _cache_timestamp).seconds > 3600):
-        print("Loading fresh data...")
         _cached_rac_data = get_data()
         _cache_timestamp = current_time
 
@@ -68,7 +67,6 @@ def load_employees(customer_list: list | None = None):
             'TotalCost_QTR',
         ]
         df = df[relevant_columns]
-        print(df.head())
         columns_to_concat = ['EmployeeCode', 'EmployeeName', 'Band', 'Offshore_Onsite', 
                      'FinalBU', 'FinalCustomer', 'PrismCustomerGroup', 
                      'ProjectRole', 'Sub-Practice', 'Practice', 'BillableYN']
@@ -80,7 +78,6 @@ def load_employees(customer_list: list | None = None):
         grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3']
         grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'] / 3
         
-        print(customer_list)
         if customer_list:
             filtered_df = grouped_df[grouped_df['PrismCustomerGroup'].isin(customer_list)].reset_index(drop=True)
         else:
@@ -92,7 +89,6 @@ def load_employees(customer_list: list | None = None):
         without_ctc = grouped_df.drop(columns=columns_to_drop, inplace=False)
         return grouped_df, filtered_df, without_ctc
     except Exception as e:
-        print(f"Error loading total employees: {str(e)}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 
@@ -113,7 +109,6 @@ def save_employee_data(df):
         df.to_csv('storage/employees.csv', index=False)
         return True
     except Exception as e:
-        print(f"Error saving employee data: {str(e)}")
         return False
 
 @app.route('/')
@@ -185,7 +180,6 @@ def calculate_gm_impact():
     """Calculate GM impact for audit log entries"""
     try:
         data = request.get_json()
-        print(data)
         
         if not data:
             return jsonify({'error': 'No data provided'}), 400
@@ -232,9 +226,6 @@ def calculate_gm_impact():
             'TotalCost_QTR': 'sum'
         }).reset_index()
         
-        print(f"Grouped dataframe shape: {grouped_df.shape}")
-        
-        print("Calculating CPCs...")
         grouped_df['CPC_M1'] = grouped_df['TotalCost_M1'] / grouped_df['TotalFTECapped_M1'].replace(0, 1)
         grouped_df['CPC_M2'] = grouped_df['TotalCost_M2'] / grouped_df['TotalFTECapped_M2'].replace(0, 1)
         grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3'].replace(0, 1)
@@ -267,11 +258,6 @@ def calculate_gm_impact():
             entry = data['latestEntry']
             gmData = entry.get('gmData', {})
             
-            print(f"\n=== Processing Entry ===")
-            print(f"Action: {entry.get('action')}")
-            print(f"Employee: {entry.get('employeeName')}")
-            print(f"FTE Change: {gmData.get('fteChange', 0)}")
-            
             # Calculate GM impact
             cpc_used = 0
             lookup_method = ""
@@ -282,57 +268,40 @@ def calculate_gm_impact():
                 location = gmData.get('location', '')
                 lookup_key = f"{band}_{location}"
                 
-                print(f"Looking up new hire CPC for: {lookup_key}")
                 
                 if lookup_key in band_location_cpc_lookup:
                     cpc_used = band_location_cpc_lookup[lookup_key]
                     lookup_method = f"band_location_avg ({lookup_key})"
-                    print(f"Found Band+Location CPC: {cpc_used}")
                 else:
-                    print(f"No CPC found for {lookup_key}")
-                    print(f"Available band+location keys: {list(band_location_cpc_lookup.keys())}")
                     # Use overall average as fallback
                     if band_location_cpc_lookup:
                         cpc_used = sum(band_location_cpc_lookup.values()) / len(band_location_cpc_lookup)
                         lookup_method = "fallback_avg"
-                        print(f"Using fallback average CPC: {cpc_used}")
                     
             else:
                 # For existing employees, use individual CPC
                 employee_code = str(gmData.get('employeeCode', ''))
-                print(f"Looking up employee CPC for: {employee_code}")
                 
                 if employee_code in employee_cpc_lookup:
                     cpc_used = employee_cpc_lookup[employee_code]
                     lookup_method = f"employee_specific ({employee_code})"
-                    print(f"Found Employee CPC: {cpc_used}")
                 else:
-                    print(f"Employee code {employee_code} not found in lookup")
-                    print(f"Sample lookup keys: {list(employee_cpc_lookup.keys())[:10]}")
-                    
-                    # Try to find the employee in the dataframe using .loc
                     try:
                         employee_code_int = int(employee_code)
                         matching_rows = grouped_df.loc[grouped_df['EmployeeCode'] == employee_code_int]
                         if not matching_rows.empty:
                             cpc_used = matching_rows.iloc[0]['CPC_QTR']
                             lookup_method = f"direct_lookup ({employee_code})"
-                            print(f"Found CPC via direct lookup: {cpc_used}")
                         else:
-                            print(f"No matching rows found for EmployeeCode {employee_code_int}")
                             cpc_used = 0
                             lookup_method = "not_found"
                     except ValueError:
-                        print(f"Could not convert {employee_code} to integer")
                         cpc_used = 0
                         lookup_method = "conversion_error"
             
             # Calculate the GM impact
             fte_change = gmData.get('fteChange', 0)
             gm_impact = fte_change * cpc_used
-            
-            print(f"Final calculation: {fte_change} FTE * {cpc_used} CPC = {gm_impact}")
-            print(f"Lookup method: {lookup_method}")
             
             # Add GM impact to the entry
             entry['gmImpact'] = {
@@ -362,7 +331,6 @@ def calculate_gm_impact():
         })
         
     except Exception as e:
-        print(f"Error in GM impact calculation: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -452,7 +420,6 @@ def update_employee(employee_id):
             return jsonify({'error': 'Failed to save changes'}), 500
             
     except Exception as e:
-        print(f"Error updating employee: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/direct-costs')
