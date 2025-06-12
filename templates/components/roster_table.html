@@ -42,6 +42,8 @@ populateDropdowns() {
 
 forcePopulateOptions() {
     const locationOptions = document.getElementById('location-options');
+    console.log('locationOptions element found:', !!locationOptions, 'innerHTML length:', locationOptions?.innerHTML?.length || 0);
+
     if (locationOptions && (!locationOptions.innerHTML || locationOptions.innerHTML.trim() === '')) {
         const locations = ['Onsite', 'Offshore'];
         locationOptions.innerHTML = locations.map(location => `
