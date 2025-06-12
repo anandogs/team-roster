@@ -36,10 +36,33 @@ this.$watch('searchQuery', () => {
         }
     },
 
-    populateDropdowns() {
-        this.$store.filters.updateLocationOptions();
-        this.$store.filters.updateBillableOptions();
-    },
+populateDropdowns() {
+    this.forcePopulateOptions();
+},
+
+forcePopulateOptions() {
+    const locationOptions = document.getElementById('location-options');
+    if (locationOptions && (!locationOptions.innerHTML || locationOptions.innerHTML.trim() === '')) {
+        const locations = ['Onsite', 'Offshore'];
+        locationOptions.innerHTML = locations.map(location => `
+            <label class='flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer'>
+                <input type='checkbox' value='${location}' class='location-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2' onchange='toggleLocation(${JSON.stringify(location)}, this.checked)' checked>
+                <span class='truncate'>${location}</span>
+            </label>
+        `).join('');
+    }
+
+    const billableOptions = document.getElementById('billable-options');
+    if (billableOptions && (!billableOptions.innerHTML || billableOptions.innerHTML.trim() === '')) {
+        const statuses = [{ value: 'Y', label: 'Billable' }, { value: 'N', label: 'Non-Billable' }];
+        billableOptions.innerHTML = statuses.map(status => `
+            <label class='flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer'>
+                <input type='checkbox' value='${status.value}' class='billable-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2' onchange='toggleBillableStatus(${JSON.stringify(status.value)}, this.checked)' checked>
+                <span class='truncate'>${status.label}</span>
+            </label>
+        `).join('');
+    }
+},
 get totalPages() {
     return Math.ceil(this.filteredEmployees.length / this.itemsPerPage);
 },

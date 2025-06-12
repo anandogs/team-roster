@@ -26,7 +26,7 @@ document.addEventListener("alpine:init", () => {
     // Helper method to clear audit log and refresh
     clearAuditLogAndRefresh() {
       localStorage.removeItem("roster-audit-log");
-
+      
       // Show brief success message
       window.dispatchEvent(
         new CustomEvent("show-toast", {
@@ -48,21 +48,16 @@ document.addEventListener("alpine:init", () => {
     async updateFiltersWithConfirmation(filterType = "general") {
       // Check if there are audit log entries
       if (this.hasAuditLogEntries()) {
-        const filterTypeText =
-          filterType === "month"
-            ? "time period"
-            : filterType === "businessUnit"
-            ? "business unit"
-            : filterType === "customer"
-            ? "customer selection"
-            : "filters";
-
+        const filterTypeText = filterType === "month" ? "time period" : 
+                              filterType === "businessUnit" ? "business unit" : 
+                              filterType === "customer" ? "customer selection" : "filters";
+        
         const confirmed = confirm(
           `Changing the ${filterTypeText} will reset all roster changes you've made. ` +
-            `This will clear your audit log and refresh the page.\n\n` +
-            `Do you want to continue?`
+          `This will clear your audit log and refresh the page.\n\n` +
+          `Do you want to continue?`
         );
-
+        
         if (!confirmed) {
           // Revert the filter change by restoring previous state
           this.revertFilterChange(filterType);
@@ -73,7 +68,7 @@ document.addEventListener("alpine:init", () => {
           return true;
         }
       }
-
+      
       // No audit log entries, proceed with normal filter update
       this.updateFilters();
       return true;
@@ -104,10 +99,8 @@ document.addEventListener("alpine:init", () => {
     updateMonthDisplay() {
       const displayElement = document.getElementById("month-display");
       if (displayElement) {
-        const displayText =
-          this.month === "Quarter"
-            ? "Quarter"
-            : this.periodData[this.month] || this.month;
+        const displayText = this.month === "Quarter" ? "Quarter" : 
+                           this.periodData[this.month] || this.month;
         displayElement.textContent = displayText;
       }
     },
@@ -139,9 +132,7 @@ document.addEventListener("alpine:init", () => {
       });
       this.customers = uniqueCustomers;
 
-      this.selectedCustomers = [
-        ...this.customers.map((c) => c.PrismCustomerGroup),
-      ];
+      this.selectedCustomers = [...this.customers.map(c => c.PrismCustomerGroup)];
       this.selectedLocations = [...this.availableLocations];
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
@@ -158,12 +149,6 @@ document.addEventListener("alpine:init", () => {
       setTimeout(() => {
         this.populateOptions();
       }, 1000);
-
-      // Add this fallback for Azure
-      setTimeout(() => {
-        this.updateLocationOptions();
-        this.updateBillableOptions();
-      }, 2000);
     },
 
     // UI Population Methods
@@ -247,7 +232,7 @@ document.addEventListener("alpine:init", () => {
     async toggleBusinessUnitWithConfirmation(bu, isChecked) {
       // Store previous state
       const previousState = [...this.selectedBusinessUnits];
-
+      
       // Apply the change temporarily
       if (isChecked) {
         if (!this.selectedBusinessUnits.includes(bu)) {
@@ -260,10 +245,8 @@ document.addEventListener("alpine:init", () => {
       }
 
       // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation(
-        "businessUnit"
-      );
-
+      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
+      
       if (!confirmed) {
         // Revert the change
         this.selectedBusinessUnits = previousState;
@@ -294,7 +277,7 @@ document.addEventListener("alpine:init", () => {
     async toggleAllBusinessUnitsWithConfirmation(selectAll) {
       // Store previous state
       const previousState = [...this.selectedBusinessUnits];
-
+      
       // Apply the change temporarily
       if (selectAll) {
         this.selectedBusinessUnits = [...this.businessUnits];
@@ -303,10 +286,8 @@ document.addEventListener("alpine:init", () => {
       }
 
       // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation(
-        "businessUnit"
-      );
-
+      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
+      
       if (!confirmed) {
         // Revert the change
         this.selectedBusinessUnits = previousState;
@@ -400,9 +381,7 @@ document.addEventListener("alpine:init", () => {
         type="checkbox"
         value="${customerObj.PrismCustomerGroup}"
         class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-        onchange="toggleCustomerWithConfirmation('${
-          customerObj.PrismCustomerGroup
-        }', this.checked)"
+        onchange="toggleCustomerWithConfirmation('${customerObj.PrismCustomerGroup}', this.checked)"
         ${
           this.selectedCustomers.includes(customerObj.PrismCustomerGroup)
             ? "checked"
@@ -422,7 +401,7 @@ document.addEventListener("alpine:init", () => {
     async toggleCustomerWithConfirmation(customer, isChecked) {
       // Store previous state
       const previousState = [...this.selectedCustomers];
-
+      
       // Apply the change temporarily
       if (isChecked) {
         if (!this.selectedCustomers.includes(customer)) {
@@ -436,7 +415,7 @@ document.addEventListener("alpine:init", () => {
 
       // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation("customer");
-
+      
       if (!confirmed) {
         // Revert the change
         this.selectedCustomers = previousState;
@@ -467,7 +446,7 @@ document.addEventListener("alpine:init", () => {
     async toggleAllCustomersWithConfirmation(selectAll) {
       // Store previous state
       const previousState = [...this.selectedCustomers];
-
+      
       // Apply the change temporarily
       if (selectAll) {
         this.selectedCustomers = [
@@ -479,7 +458,7 @@ document.addEventListener("alpine:init", () => {
 
       // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation("customer");
-
+      
       if (!confirmed) {
         // Revert the change
         this.selectedCustomers = previousState;
@@ -792,7 +771,7 @@ document.addEventListener("alpine:init", () => {
     async selectMonth(monthKey, monthDisplay = null) {
       // Store previous state
       const previousMonth = this.month;
-
+      
       // Apply the change temporarily
       this.month = monthKey;
       const displayText = monthDisplay || monthKey;
@@ -803,7 +782,7 @@ document.addEventListener("alpine:init", () => {
 
       // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation("month");
-
+      
       if (!confirmed) {
         // Revert the change
         this.month = previousMonth;
