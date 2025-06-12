@@ -1,6 +1,0 @@
-id,name,band,businessUnit,customer,location,billable,fteApril,fteMay,fteJune,fteQuarter
-1,Jamie Johnson,Mid-level,BU B,Customer D,Offshore,true,0.1,0.2,0.3,0.2
-2,Jordan Williams,Senior,BU A,Customer A,Offshore,true,0.2,0.3,0,0.17
-3,Taylor Brown,Principal,BU B,Customer D,Onsite,true,0.3,0.4,0.5,0.4
-4,Casey Jones,Junior,BU A,Customer A,Offshore,true,0.4,0.5,0,0.3
-5,Riley Garcia,Mid-level,BU B,Customer D,Offshore,false,0.5,0.6,0.7,0.6 
