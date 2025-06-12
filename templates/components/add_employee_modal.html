@@ -1,0 +1,1211 @@
+<!-- Add Employee Modal Component with Enhanced FTE Validation -->
+<div
+  x-data="addEmployeeModal()"
+  x-show="isOpen"
+  x-cloak
+  class="fixed inset-0 z-50 overflow-y-auto"
+  @keydown.escape.window="closeModal()"
+  style="display: none"
+>
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+    @click="closeModal()"
+    x-show="isOpen"
+    x-transition:enter="ease-out duration-300"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="ease-in duration-200"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+  ></div>
+
+  <!-- Modal Container -->
+  <div class="flex min-h-full items-center justify-center p-4">
+    <!-- Modal Content -->
+    <div
+      class="relative bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl max-w-lg w-full mx-auto"
+      x-show="isOpen"
+      x-transition:enter="ease-out duration-300"
+      x-transition:enter-start="opacity-0 transform scale-95"
+      x-transition:enter-end="opacity-100 transform scale-100"
+      x-transition:leave="ease-in duration-200"
+      x-transition:leave-start="opacity-100 transform scale-100"
+      x-transition:leave-end="opacity-0 transform scale-95"
+    >
+      <!-- Modal Header -->
+      <div
+        class="flex items-center justify-between p-6 border-b border-neutral-700"
+      >
+        <h3 class="text-xl font-semibold text-white">Add Employee to Roster</h3>
+        <button
+          @click="closeModal()"
+          class="text-neutral-400 hover:text-white transition-colors"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6">
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-neutral-600 mb-6">
+          <button
+            @click="activeTab = 'existing'"
+            class="flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'existing' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-400 hover:text-neutral-300'"
+          >
+            <svg
+              class="w-4 h-4 inline mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+              ></path>
+            </svg>
+            Select Existing Employee
+          </button>
+          <button
+            @click="activeTab = 'newhire'"
+            class="flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'newhire' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-400 hover:text-neutral-300'"
+          >
+            <svg
+              class="w-4 h-4 inline mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              ></path>
+            </svg>
+            Add New Hire
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="min-h-[300px]">
+          <!-- Existing Employee Tab -->
+          <div x-show="activeTab === 'existing'" class="space-y-4">
+            <!-- Search Section -->
+            <div class="space-y-4">
+              <!-- Search Input -->
+              <div class="relative">
+                <svg
+                  class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  ></path>
+                </svg>
+                <input
+                  type="text"
+                  x-model="searchQuery"
+                  @input="searchEmployees()"
+                  placeholder="Type at least 2 characters to search employees..."
+                  class="w-full pl-10 pr-4 py-2.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <!-- Loading indicator -->
+                <div
+                  x-show="isLoadingEmployees"
+                  class="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <div
+                    class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Search Results Info -->
+              <div
+                x-show="searchQuery.length >= 2"
+                class="flex items-center justify-between text-sm"
+              >
+                <span class="text-neutral-400">
+                  <span
+                    x-text="searchQuery.length < 2 ? '' : `Showing ${Math.min(filteredEmployees.length, 50)} of ${filteredEmployees.length} employees`"
+                  ></span>
+                </span>
+                <span
+                  x-show="selectedEmployees.length > 0"
+                  class="text-blue-400 font-medium"
+                >
+                  <span x-text="`${selectedEmployees.length} selected`"></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Employee Results -->
+            <div x-show="searchQuery.length >= 2" class="space-y-2">
+              <!-- No results -->
+              <template
+                x-if="searchQuery.length >= 2 && filteredEmployees.length === 0 && !isLoadingEmployees"
+              >
+                <div class="text-center py-8">
+                  <svg
+                    class="mx-auto h-8 w-8 text-neutral-500 mb-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    ></path>
+                  </svg>
+                  <p class="text-neutral-400">
+                    No employees found matching "<span
+                      x-text="searchQuery"
+                    ></span
+                    >"
+                  </p>
+                </div>
+              </template>
+
+              <!-- Employee List -->
+              <template
+                x-if="searchQuery.length >= 2 && filteredEmployees.length > 0"
+              >
+                <div
+                  class="max-h-64 overflow-y-auto border border-neutral-600 rounded-lg"
+                >
+                  <!-- Select All Option -->
+                  <div
+                    x-show="filteredEmployees.length > 0"
+                    class="sticky top-0 bg-neutral-700 border-b border-neutral-600 p-3"
+                  >
+                    <label class="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        :checked="isAllVisibleSelected()"
+                        :indeterminate="isSomeVisibleSelected() && !isAllVisibleSelected()"
+                        @change="toggleAllVisible($event.target.checked)"
+                        class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span class="text-sm font-medium text-white">
+                        Select all visible (<span
+                          x-text="Math.min(filteredEmployees.length, 50)"
+                        ></span
+                        >)
+                      </span>
+                    </label>
+                  </div>
+
+                  <!-- Employee Items -->
+                  <div class="divide-y divide-neutral-600">
+                    <template
+                      x-for="(employee, index) in filteredEmployees.slice(0, 50)"
+                      :key="employee.EmployeeCode || employee.id"
+                    >
+                      <label
+                        class="flex items-center p-3 hover:bg-neutral-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          :value="employee.EmployeeCode || employee.id"
+                          :checked="selectedEmployees.some(emp => (emp.EmployeeCode || emp.id) === (employee.EmployeeCode || employee.id))"
+                          @change="toggleEmployeeSelection(employee, $event.target.checked)"
+                          class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center justify-between">
+                            <h4
+                              class="text-sm font-medium text-white truncate"
+                              x-text="employee.EmployeeName"
+                            ></h4>
+                            <span
+                              class="ml-2 text-xs text-neutral-400"
+                              x-text="employee.Band"
+                            ></span>
+                          </div>
+                          <div
+                            class="flex items-center gap-4 mt-1 text-xs text-neutral-400"
+                          >
+                            <span x-text="employee.FinalBU || 'No BU'"></span>
+                            <span class="text-neutral-500">•</span>
+                            <span x-text="employee.Offshore_Onsite"></span>
+                          </div>
+                        </div>
+                      </label>
+                    </template>
+                  </div>
+
+                  <!-- Show more indicator -->
+                  <div
+                    x-show="filteredEmployees.length > 50"
+                    class="bg-neutral-700 p-3 text-center border-t border-neutral-600"
+                  >
+                    <p class="text-xs text-neutral-400">
+                      Showing first 50 results. Refine search to see more
+                      specific results.
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Initial State -->
+            <template x-if="searchQuery.length < 2">
+              <div class="text-center py-12">
+                <div
+                  class="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4"
+                >
+                  <svg
+                    class="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    ></path>
+                  </svg>
+                </div>
+                <h4 class="text-lg font-medium text-white mb-2">
+                  Search for Employees
+                </h4>
+                <p class="text-neutral-400 text-sm">
+                  Start typing to search through 6,000+ employees in your
+                  organization
+                </p>
+              </div>
+            </template>
+
+            <!-- Configuration Panel -->
+            <template x-if="selectedEmployees.length > 0">
+              <div class="border-t border-neutral-600 pt-4 mt-4">
+                <h5 class="text-sm font-medium text-white mb-4">
+                  Employee Details
+                </h5>
+
+                <!-- Validation Summary -->
+                <template x-if="getValidationErrors().length > 0">
+                  <div
+                    class="mb-4 p-3 bg-red-900/20 border border-red-600 rounded-lg"
+                  >
+                    <div class="flex items-center mb-2">
+                      <svg
+                        class="w-4 h-4 text-red-400 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
+                      </svg>
+                      <span class="text-sm font-medium text-red-400"
+                        >Validation Errors</span
+                      >
+                    </div>
+                    <ul class="text-sm text-red-300 space-y-1">
+                      <template
+                        x-for="error in getValidationErrors()"
+                        :key="error"
+                      >
+                        <li x-text="error"></li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+
+                <!-- Employee Configuration Table -->
+                <div class="space-y-3">
+                  <div
+                    class="max-h-64 overflow-y-auto border border-neutral-600 rounded-lg"
+                  >
+                    <div
+                      class="sticky top-0 bg-neutral-700 border-b border-neutral-600 px-3 py-2"
+                    >
+                      <div
+                        class="grid grid-cols-12 gap-2 text-xs font-medium text-neutral-300"
+                      >
+                        <div class="col-span-6">Employee</div>
+                        <div class="col-span-3">FTE</div>
+                        <div class="col-span-3">Customer</div>
+                      </div>
+                    </div>
+
+                    <div class="divide-y divide-neutral-600">
+                      <template
+                        x-for="employee in selectedEmployees"
+                        :key="employee.EmployeeCode || employee.id"
+                      >
+                        <div class="grid grid-cols-12 gap-2 p-3 items-center">
+                          <!-- Employee Info -->
+                          <div class="col-span-6">
+                            <div
+                              class="text-sm font-medium text-white truncate"
+                              x-text="employee.EmployeeName"
+                            ></div>
+                            <div
+                              class="text-xs text-neutral-400"
+                              x-text="employee.Band"
+                            ></div>
+                          </div>
+
+                          <!-- FTE Input with Enhanced Validation -->
+                          <div class="col-span-3">
+                            <div class="relative">
+                              <input
+                                type="number"
+                                :value="getIndividualFTE(employee)"
+                                @input="setIndividualFTE(employee, $event.target.value)"
+                                @blur="validateFTE(employee, $event.target.value)"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                placeholder="1.0"
+                                :class="getFTEInputClass(employee)"
+                                class="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1"
+                              />
+                              <!-- Error icon -->
+                              <template x-if="isFTEInvalid(employee)">
+                                <svg
+                                  class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  ></path>
+                                </svg>
+                              </template>
+                            </div>
+                          </div>
+
+                          <!-- Customer Select with Enhanced Validation -->
+                          <div class="col-span-3">
+                            <div class="relative">
+                              <select
+                                :value="getIndividualCustomer(employee)"
+                                @change="setIndividualCustomer(employee, $event.target.value)"
+                                :class="isCustomerInvalid(employee) ? 
+                                  'w-full px-2 py-1 bg-red-50 border border-red-600 text-red-900 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500' :
+                                  'w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'"
+                              >
+                                <template
+                                  x-for="customer in availableCustomers"
+                                  :key="customer"
+                                >
+                                  <option
+                                    :value="customer"
+                                    x-text="customer"
+                                  ></option>
+                                </template>
+                              </select>
+                              <!-- Error icon for customer -->
+                              <template x-if="isCustomerInvalid(employee)">
+                                <svg
+                                  class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  ></path>
+                                </svg>
+                              </template>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- New Hire Tab -->
+          <!-- New Hire Tab -->
+          <div x-show="activeTab === 'newhire'" class="space-y-4">
+            <!-- New Hire Form -->
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <h5 class="text-sm font-medium text-white">
+                  Add New Employees
+                </h5>
+                <button
+                  @click="addNewHireRow()"
+                  class="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                >
+                  + Add Row
+                </button>
+              </div>
+
+              <!-- New Hire Table -->
+              <div class="border border-neutral-600 rounded-lg overflow-hidden">
+                <!-- Header -->
+                <div
+                  class="bg-neutral-700 px-4 py-3 border-b border-neutral-600"
+                >
+                  <div
+                    class="grid grid-cols-12 gap-3 text-xs font-medium text-neutral-300"
+                  >
+                    <div class="col-span-3">Band</div>
+                    <div class="col-span-4">Customer</div>
+                    <div class="col-span-2">Location</div>
+                    <div class="col-span-2">FTE</div>
+                    <div class="col-span-1">Action</div>
+                  </div>
+                </div>
+
+                <!-- New Hire Rows -->
+                <div
+                  class="divide-y divide-neutral-600 max-h-64 overflow-y-auto"
+                >
+                  <template x-for="(newHire, index) in newHires" :key="index">
+                    <div class="grid grid-cols-12 gap-3 p-4 items-center">
+                      <!-- Band -->
+                      <div class="col-span-3">
+                        <select
+                          x-model="newHire.band"
+                          class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <template x-for="band in availableBands" :key="band">
+                            <option :value="band" x-text="band"></option>
+                          </template>
+                        </select>
+                      </div>
+
+                      <!-- Customer -->
+                      <div class="col-span-4">
+                        <select
+                          x-model="newHire.customer"
+                          class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <template
+                            x-for="customer in availableCustomers"
+                            :key="customer"
+                          >
+                            <option
+                              :value="customer"
+                              x-text="customer"
+                            ></option>
+                          </template>
+                        </select>
+                      </div>
+
+                      <!-- Location -->
+                      <div class="col-span-2">
+                        <select
+                          x-model="newHire.location"
+                          class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="Onsite">Onsite</option>
+                          <option value="Offshore">Offshore</option>
+                        </select>
+                      </div>
+
+                      <!-- FTE -->
+                      <!-- FTE -->
+                      <div class="col-span-2">
+                        <input
+                          type="number"
+                          x-model="newHire.fte"
+                          min="0"
+                          step="0.1"
+                          placeholder="1.0"
+                          class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <!-- Remove Button -->
+                      <div class="col-span-1">
+                        <button
+                          @click="removeNewHireRow(index)"
+                          class="p-1 text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <svg
+                            class="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            ></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Empty state -->
+                  <template x-if="newHires.length === 0">
+                    <div class="p-8 text-center">
+                      <p class="text-neutral-400 text-sm">
+                        No new hires added yet. Click "Add Row" to start.
+                      </p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Validation Summary for New Hires -->
+              <template x-if="getNewHireValidationErrors().length > 0">
+                <div class="p-3 bg-red-900/20 border border-red-600 rounded-lg">
+                  <div class="flex items-center mb-2">
+                    <svg
+                      class="w-4 h-4 text-red-400 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      ></path>
+                    </svg>
+                    <span class="text-sm font-medium text-red-400"
+                      >New Hire Validation Errors</span
+                    >
+                  </div>
+                  <ul class="text-sm text-red-300 space-y-1">
+                    <template
+                      x-for="error in getNewHireValidationErrors()"
+                      :key="error"
+                    >
+                      <li x-text="error"></li>
+                    </template>
+                  </ul>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div
+        class="flex items-center justify-between p-6 border-t border-neutral-700"
+      >
+        <div class="text-sm text-neutral-400">
+          <span
+            x-show="activeTab === 'existing' && selectedEmployees.length > 0"
+          >
+            <span x-text="selectedEmployees.length"></span> employee(s) selected
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            @click="closeModal()"
+            class="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="addSelectedEmployees()"
+            :disabled="!canAddEmployees()"
+            :class="!canAddEmployees() ? 
+                    'px-4 py-2 text-sm font-medium bg-neutral-600 text-neutral-400 rounded-md cursor-not-allowed' :
+                    'px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors'"
+            :title="!canAddEmployees() ? getDisabledButtonTooltip() : ''"
+          >
+            <span x-show="activeTab === 'existing'">Add to Roster</span>
+            <span x-show="activeTab === 'newhire'">Create & Add</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function addEmployeeModal() {
+    return {
+      isOpen: false,
+      activeTab: "existing",
+
+      // Employee search state
+      searchQuery: "",
+      isLoadingEmployees: false,
+      allEmployees: [],
+      filteredEmployees: [],
+      selectedEmployees: [],
+
+      // Configuration state
+      defaultFTE: 1.0,
+      defaultCustomer: "",
+
+      newHires: [],
+
+      // Validation state
+      employeeConfigs: new Map(), // Store individual FTE and customer values
+
+      // Available customers from filters
+      get availableCustomers() {
+        const customers = Alpine.store("filters")?.customers || [];
+        return customers.map((c) => c.PrismCustomerGroup); // Extract just names for dropdown
+      },
+
+      get customerToBUMapping() {
+        const customers = Alpine.store("filters")?.customers || [];
+        const mapping = {};
+        customers.forEach((c) => {
+          mapping[c.PrismCustomerGroup] = c.FinalBU;
+        });
+        return mapping;
+      },
+
+      get availableBands() {
+        // Extract unique bands from all employees
+        const bands = new Set();
+        this.allEmployees.forEach((emp) => {
+          if (emp.Band) bands.add(emp.Band);
+        });
+        return Array.from(bands).sort();
+      },
+
+      init() {
+        // Listen for the global open event
+        window.addEventListener("open-add-employee-modal", () => {
+          this.openModal();
+        });
+      },
+
+      async openModal() {
+        this.isOpen = true;
+        this.activeTab = "existing";
+        this.resetState();
+
+        // Load employees in background
+        await this.loadAllEmployees();
+
+        // Set default customer to first available customer
+        if (this.availableCustomers.length > 0) {
+          this.defaultCustomer = this.availableCustomers[0];
+        }
+
+        this.$watch("activeTab", (newTab) => {
+          if (newTab === "newhire" && this.newHires.length === 0) {
+            this.addNewHireRow();
+          }
+        });
+
+        document.body.style.overflow = "hidden";
+      },
+
+      closeModal() {
+        this.isOpen = false;
+        this.resetState();
+        document.body.style.overflow = "";
+      },
+
+      resetState() {
+        this.searchQuery = "";
+        this.filteredEmployees = [];
+        this.selectedEmployees = [];
+        this.defaultFTE = 1.0;
+        this.defaultCustomer = "";
+        this.employeeConfigs.clear();
+        this.newHires = [];
+      },
+
+      async loadAllEmployees() {
+        if (this.allEmployees.length > 0) return; // Already loaded
+
+        this.isLoadingEmployees = true;
+        try {
+          const response = await fetch("/api/total-employees");
+          const data = await response.json();
+
+          // Deduplicate employees by EmployeeCode (or id)
+          const uniqueEmployeesMap = new Map();
+          data.forEach((employee) => {
+            const key = employee.EmployeeCode || employee.id;
+            if (!uniqueEmployeesMap.has(key)) {
+              uniqueEmployeesMap.set(key, employee);
+            }
+          });
+
+          // Convert back to array
+          const uniqueEmployees = Array.from(uniqueEmployeesMap.values());
+
+          // Filter out employees already on roster
+          const rosterIds = new Set([
+            ...Alpine.store("employees").rosterEmployees.map(
+              (emp) => emp.EmployeeCode || emp.id
+            ),
+            ...Alpine.store("employees").newHires.map((emp) => emp.id),
+          ]);
+
+          this.allEmployees = uniqueEmployees.filter(
+            (emp) => !rosterIds.has(emp.EmployeeCode || emp.id)
+          );
+        } catch (error) {
+          console.error("Failed to load employees:", error);
+          this.allEmployees = [];
+        } finally {
+          this.isLoadingEmployees = false;
+        }
+      },
+
+      searchEmployees() {
+        if (this.searchQuery.length < 2) {
+          this.filteredEmployees = [];
+          return;
+        }
+
+        const query = this.searchQuery.toLowerCase();
+        this.filteredEmployees = this.allEmployees.filter((employee) => {
+          const searchText =
+            `${employee.EmployeeName} ${employee.FinalBU} ${employee.Band} ${employee.Offshore_Onsite}`.toLowerCase();
+          return searchText.includes(query);
+        });
+      },
+
+      toggleEmployeeSelection(employee, isSelected) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        if (isSelected) {
+          if (
+            !this.selectedEmployees.some(
+              (emp) => (emp.EmployeeCode || emp.id) === employeeId
+            )
+          ) {
+            this.selectedEmployees.push(employee);
+            // Initialize with default values - use first available customer
+            this.employeeConfigs.set(employeeId, {
+              fte: this.defaultFTE,
+              customer:
+                this.availableCustomers.length > 0
+                  ? this.availableCustomers[0]
+                  : "",
+            });
+          }
+        } else {
+          this.selectedEmployees = this.selectedEmployees.filter(
+            (emp) => (emp.EmployeeCode || emp.id) !== employeeId
+          );
+          this.employeeConfigs.delete(employeeId);
+        }
+      },
+
+      isAllVisibleSelected() {
+        const visibleEmployees = this.filteredEmployees.slice(0, 50);
+        return (
+          visibleEmployees.length > 0 &&
+          visibleEmployees.every((emp) =>
+            this.selectedEmployees.some(
+              (selected) =>
+                (selected.EmployeeCode || selected.id) ===
+                (emp.EmployeeCode || emp.id)
+            )
+          )
+        );
+      },
+
+      isSomeVisibleSelected() {
+        const visibleEmployees = this.filteredEmployees.slice(0, 50);
+        return visibleEmployees.some((emp) =>
+          this.selectedEmployees.some(
+            (selected) =>
+              (selected.EmployeeCode || selected.id) ===
+              (emp.EmployeeCode || emp.id)
+          )
+        );
+      },
+
+      toggleAllVisible(selectAll) {
+        const visibleEmployees = this.filteredEmployees.slice(0, 50);
+
+        if (selectAll) {
+          // Add all visible employees that aren't already selected
+          visibleEmployees.forEach((employee) => {
+            const employeeId = employee.EmployeeCode || employee.id;
+            if (
+              !this.selectedEmployees.some(
+                (emp) => (emp.EmployeeCode || emp.id) === employeeId
+              )
+            ) {
+              this.selectedEmployees.push(employee);
+              // Default to first available customer
+              this.employeeConfigs.set(employeeId, {
+                fte: this.defaultFTE,
+                customer:
+                  this.availableCustomers.length > 0
+                    ? this.availableCustomers[0]
+                    : "",
+              });
+            }
+          });
+        } else {
+          // Remove all visible employees from selection
+          const visibleIds = new Set(
+            visibleEmployees.map((emp) => emp.EmployeeCode || emp.id)
+          );
+          this.selectedEmployees = this.selectedEmployees.filter((emp) => {
+            const empId = emp.EmployeeCode || emp.id;
+            if (visibleIds.has(empId)) {
+              this.employeeConfigs.delete(empId);
+              return false;
+            }
+            return true;
+          });
+        }
+      },
+
+      // FTE and Customer management
+      getIndividualFTE(employee) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId);
+        return config ? config.fte : this.defaultFTE;
+      },
+
+      setIndividualFTE(employee, value) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId) || {
+          fte: this.defaultFTE,
+          customer: this.defaultCustomer,
+        };
+        config.fte = parseFloat(value) || 0;
+        this.employeeConfigs.set(employeeId, config);
+      },
+
+      getIndividualCustomer(employee) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId);
+        return config
+          ? config.customer
+          : this.availableCustomers.length > 0
+          ? this.availableCustomers[0]
+          : "";
+      },
+
+      setIndividualCustomer(employee, value) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId) || {
+          fte: this.defaultFTE,
+          customer:
+            this.availableCustomers.length > 0
+              ? this.availableCustomers[0]
+              : "",
+        };
+        config.customer = value;
+        this.employeeConfigs.set(employeeId, config);
+      },
+
+      // Validation methods
+      isFTEInvalid(employee) {
+        const fte = this.getIndividualFTE(employee);
+        return fte < 0 || fte > 1 || isNaN(fte);
+      },
+
+      isCustomerInvalid(employee) {
+        const customer = this.getIndividualCustomer(employee);
+        return !customer || customer.trim() === "";
+      },
+
+      getFTEInputClass(employee) {
+        const baseClasses =
+          "w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1";
+        if (this.isFTEInvalid(employee)) {
+          return `${baseClasses} bg-red-50 border-red-600 text-red-900 focus:ring-red-500`;
+        }
+        return `${baseClasses} bg-neutral-700 border-neutral-600 text-white focus:ring-blue-500`;
+      },
+
+      getFTEErrorMessage(employee) {
+        const fte = this.getIndividualFTE(employee);
+        if (isNaN(fte)) return "FTE must be a number";
+        if (fte < 0) return "FTE cannot be negative";
+        if (fte > 1) return "FTE cannot exceed 1.0";
+        return "";
+      },
+
+      validateFTE(employee, value) {
+        // This method can be called on blur for additional validation
+        const numValue = parseFloat(value);
+        if (isNaN(numValue) || numValue < 0 || numValue > 1) {
+          // Could add additional feedback here if needed
+          console.warn(
+            `Invalid FTE value: ${value} for employee ${employee.EmployeeName}`
+          );
+        }
+      },
+
+      getValidationErrors() {
+        const errors = [];
+
+        this.selectedEmployees.forEach((employee) => {
+          const employeeName = employee.EmployeeName;
+
+          if (this.isFTEInvalid(employee)) {
+            const fte = this.getIndividualFTE(employee);
+            if (isNaN(fte)) {
+              errors.push(`${employeeName}: FTE must be a valid number`);
+            } else if (fte < 0) {
+              errors.push(`${employeeName}: FTE cannot be negative`);
+            } else if (fte > 1) {
+              errors.push(`${employeeName}: FTE cannot exceed 1.0`);
+            }
+          }
+
+          if (this.isCustomerInvalid(employee)) {
+            errors.push(`${employeeName}: Customer selection is required`);
+          }
+        });
+
+        return errors;
+      },
+
+      canAddEmployees() {
+        if (this.activeTab === "existing") {
+          return (
+            this.selectedEmployees.length > 0 &&
+            this.getValidationErrors().length === 0
+          );
+        } else if (this.activeTab === "newhire") {
+          return (
+            this.newHires.length > 0 &&
+            this.getNewHireValidationErrors().length === 0
+          );
+        }
+        return false;
+      },
+
+      getDisabledButtonTooltip() {
+        const errors = this.getValidationErrors();
+        if (this.selectedEmployees.length === 0) {
+          return "Please select at least one employee";
+        }
+        if (errors.length > 0) {
+          return `Please fix validation errors: ${errors
+            .slice(0, 2)
+            .join(", ")}${errors.length > 2 ? "..." : ""}`;
+        }
+        return "";
+      },
+
+      addNewHireRow() {
+        this.newHires.push({
+          band: this.availableBands.length > 0 ? this.availableBands[0] : "",
+          customer:
+            this.availableCustomers.length > 0
+              ? this.availableCustomers[0]
+              : "",
+          location: "Offshore",
+          fte: 1.0,
+        });
+      },
+
+      removeNewHireRow(index) {
+        this.newHires.splice(index, 1);
+      },
+
+      getNewHireValidationErrors() {
+        const errors = [];
+
+        this.newHires.forEach((newHire, index) => {
+          const rowNum = index + 1;
+
+          if (!newHire.band) {
+            errors.push(`Row ${rowNum}: Band selection is required`);
+          }
+
+          if (!newHire.customer) {
+            errors.push(`Row ${rowNum}: Customer selection is required`);
+          }
+
+          if (!newHire.location) {
+            errors.push(`Row ${rowNum}: Location selection is required`);
+          }
+
+          const fte = parseFloat(newHire.fte);
+          if (isNaN(fte) || fte < 0) {
+            errors.push(`Row ${rowNum}: FTE must be 0 or greater`);
+          }
+        });
+
+        return errors;
+      },
+
+      addSelectedEmployees() {
+        if (this.activeTab === "existing") {
+          if (!this.canAddEmployees()) {
+            // Show validation errors in a toast
+            const errors = this.getValidationErrors();
+            window.dispatchEvent(
+              new CustomEvent("show-toast", {
+                detail: {
+                  title: "Validation Error",
+                  description: `Please fix the following issues: ${errors
+                    .slice(0, 2)
+                    .join(", ")}${
+                    errors.length > 2 ? ` and ${errors.length - 2} more...` : ""
+                  }`,
+                  type: "error",
+                },
+              })
+            );
+            return;
+          }
+
+          // Add employees to roster with individual values
+          const employeesToAdd = this.selectedEmployees.map((employee) => {
+            const employeeId = employee.EmployeeCode || employee.id;
+            const config = this.employeeConfigs.get(employeeId);
+            const selectedCustomer = config?.customer || this.defaultCustomer;
+            const derivedBU =
+              this.customerToBUMapping[selectedCustomer] || "Unassigned";
+
+            return {
+              id: employeeId,
+              EmployeeName: employee.EmployeeName,
+              PrismCustomerGroup: selectedCustomer,
+              FinalBU: derivedBU,
+              Band: employee.Band,
+              BillableYN: true, // Set to true by default as requested
+              Offshore_Onsite: employee.Offshore_Onsite,
+              FTE: config?.fte || this.defaultFTE,
+            };
+          });
+
+          // Add employees to roster
+          // Add employees via audit log instead of directly to roster
+          // Add employees via audit log instead of directly to roster
+          employeesToAdd.forEach((employeeData) => {
+            Alpine.store("employees").addAuditEntry(
+              "ADD_EMPLOYEE",
+              employeeData.id,
+              0, // oldValue is 0 (wasn't on roster)
+              employeeData.FTE, // newValue is the FTE being added
+              employeeData.EmployeeName,
+              employeeData // Pass the complete employee data
+            );
+          });
+
+          // Notify the store about changes
+          Alpine.store("employees").notifyStateChange();
+
+          // Show success message
+          window.dispatchEvent(
+            new CustomEvent("show-toast", {
+              detail: {
+                title: "Employees Added",
+                description: `Successfully added ${this.selectedEmployees.length} employee(s) to the roster.`,
+                type: "success",
+              },
+            })
+          );
+
+          this.closeModal();
+        } else if (this.activeTab === "newhire") {
+          if (!this.canAddEmployees()) {
+            const errors = this.getNewHireValidationErrors();
+            window.dispatchEvent(
+              new CustomEvent("show-toast", {
+                detail: {
+                  title: "Validation Error",
+                  description: `Please fix the following issues: ${errors
+                    .slice(0, 2)
+                    .join(", ")}${
+                    errors.length > 2 ? ` and ${errors.length - 2} more...` : ""
+                  }`,
+                  type: "error",
+                },
+              })
+            );
+            return;
+          }
+
+          // Process new hires
+          const newHiresToAdd = this.newHires.map((newHire, index) => {
+            const newHireId = `newhire_${Date.now()}_${index}`;
+            return {
+              id: newHireId,
+              EmployeeName: `New Hire ${index + 1}`,
+              PrismCustomerGroup: newHire.customer,
+              FinalBU:
+                this.customerToBUMapping[newHire.customer] || "Unassigned",
+              Band: newHire.band,
+              BillableYN: true,
+              Offshore_Onsite: newHire.location,
+              FTE: parseFloat(newHire.fte),
+            };
+          });
+
+          // Add new hires via audit log
+          // Add new hires via audit log
+          newHiresToAdd.forEach((newHireData) => {
+            Alpine.store("employees").addAuditEntry(
+              "ADD_EMPLOYEE",
+              newHireData.id,
+              0, // oldValue is 0 (wasn't on roster)
+              newHireData.FTE, // newValue is the FTE being added
+              newHireData.EmployeeName,
+              newHireData
+            );
+          });
+
+          // Show success message
+          window.dispatchEvent(
+            new CustomEvent("show-toast", {
+              detail: {
+                title: "New Hires Added",
+                description: `Successfully added ${this.newHires.length} new hire(s) to the roster.`,
+                type: "success",
+              },
+            })
+          );
+
+          this.closeModal();
+        }
+      },
+    };
+  }
+
+  // Global function to open the modal (called by the Add Employee button)
+  function openAddEmployeeModal() {
+    window.dispatchEvent(new CustomEvent("open-add-employee-modal"));
+  }
+</script>

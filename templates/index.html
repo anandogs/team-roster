@@ -1,0 +1,71 @@
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+scripts %}
+<script src="{{ url_for('static', filename='js/stores/filters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stores/employees.js') }}"></script>
+
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.store('filters').init();
+    Alpine.store('employees').init();
+  });
+
+</script>
+
+{% endblock %} {% block filter_bar %} {% include 'components/filter_bar.html' %}
+{% endblock %} {% block content %}
+<div class="space-y-6">
+  <div class="mt-4">
+    <h1 class="text-2xl font-bold tracking-tight">Team Roster Management</h1>
+    <p class="text-neutral-400">
+      Manage your team roster and track gross margin.
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div>
+
+    <div
+      class="bg-neutral-900 border-t-0 border border-neutral-800 rounded-b-lg p-4"
+    >
+      <div>
+        {% include 'components/roster_table.html' %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toast notification handler
+  window.addEventListener("show-toast", (event) => {
+    const { title, description, type = "success" } = event.detail;
+
+    const toast = document.createElement("div");
+    toast.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
+      type === "success" ? "bg-green-600" : "bg-red-600"
+    } text-white z-50 transition-opacity duration-500`;
+
+    toast.innerHTML = `
+    <div class="flex items-center space-x-2">
+      <div class="flex-1">
+        <h3 class="font-medium">${title}</h3>
+        <p class="text-sm opacity-90">${description}</p>
+      </div>
+      <button class="opacity-70 hover:opacity-100" onclick="this.parentElement.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => toast.remove(), 500);
+    }, 5000);
+  });
+</script>
+{% endblock %} {% block sidebar %} {% include 'components/gm_summary.html' %}
+{% include 'components/audit_log.html' %}
+{%endblock %}

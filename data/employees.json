@@ -1,0 +1,28 @@
+[
+    {
+        "band": "Mid-level",
+        "billable": true,
+        "businessUnit": "BU B",
+        "customer": "Customer D",
+        "fteApril": 0.1,
+        "fteJune": 0.3,
+        "fteMay": 0.2,
+        "fteQuarter": 0.2,
+        "id": "1",
+        "location": "Offshore",
+        "name": "Jamie Johnson"
+    },
+    {
+        "band": "Senior",
+        "billable": true,
+        "businessUnit": "BU A",
+        "customer": "Customer A",
+        "fteApril": 0.2,
+        "fteJune": 0,
+        "fteMay": 0.3,
+        "fteQuarter": 0.17,
+        "id": "2",
+        "location": "Offshore",
+        "name": "Jordan Williams"
+    }
+] 
