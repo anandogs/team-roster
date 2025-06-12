@@ -1,3 +1,8 @@
+import os
+import io
+from azure.identity import AzureCliCredential, ManagedIdentityCredential
+from azure.storage.blob import BlobServiceClient
+
 import logging
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
@@ -12,11 +17,22 @@ import pandas as pd
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger('azure').setLevel(logging.WARNING)
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.ERROR)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 app = Flask(__name__)
 
 _cached_rac_data = None
 _cache_timestamp = None
+
+def get_credential():
+    '''Get the credential based on the environment'''
+    # Check if running in Azure (presence of IDENTITY_ENDPOINT environment variable)
+    if "IDENTITY_ENDPOINT" in os.environ:
+        return ManagedIdentityCredential()
+    else:
+        return AzureCliCredential()
 
 def get_cached_data():
     global _cached_rac_data, _cache_timestamp
@@ -42,9 +58,19 @@ def get_current_user():
     }
 
 def get_data():
-    cost = pd.read_csv('Q1FY2026.csv', low_memory=False)
+    account_url = "https://sonataonefpa.blob.core.windows.net/"
+    container_name = "rac-gm"
+    credential = get_credential()
+    blob_service_client = BlobServiceClient(account_url, credential=credential)
+    container_client = blob_service_client.get_container_client(container_name)
     
-    return cost
+    # Download Q1FY2026.csv
+    cost_blob_client = container_client.get_blob_client("cost/Q1FY2026.csv")
+    cost_download_stream = cost_blob_client.download_blob()
+    cost_content = io.BytesIO(cost_download_stream.readall())
+    cost_df = pd.read_csv(cost_content, low_memory=False)
+    
+    return cost_df
 
 def load_employees(customer_list: list | None = None):
     try:
@@ -135,9 +161,30 @@ def get_total_employees():
 @app.route('/api/gm-details')
 def get_gm_details():
     """Get GM details for the portfolio of the user"""
-    revenue = pd.read_csv('prism.csv', low_memory=False)
-    plan = pd.read_csv('plan.csv', low_memory=False)
-    odc = pd.read_csv('odc.csv', low_memory=False)
+    # Download from Azure Blob Storage
+    account_url = "https://sonataonefpa.blob.core.windows.net/"
+    container_name = "testpoccontainer"
+    credential = get_credential()
+    blob_service_client = BlobServiceClient(account_url, credential=credential)
+    container_client = blob_service_client.get_container_client(container_name)
+
+    # Download prism.csv
+    prism_blob_client = container_client.get_blob_client("prism.csv")
+    prism_download_stream = prism_blob_client.download_blob()
+    prism_content = io.BytesIO(prism_download_stream.readall())
+    revenue = pd.read_csv(prism_content, low_memory=False)
+
+    # Download plan.csv
+    plan_blob_client = container_client.get_blob_client("plan.csv")
+    plan_download_stream = plan_blob_client.download_blob()
+    plan_content = io.BytesIO(plan_download_stream.readall())
+    plan = pd.read_csv(plan_content, low_memory=False)
+
+    # Download odc.csv
+    odc_blob_client = container_client.get_blob_client("odc.csv")
+    odc_download_stream = odc_blob_client.download_blob()
+    odc_content = io.BytesIO(odc_download_stream.readall())
+    odc = pd.read_csv(odc_content, low_memory=False)
     cost = get_cached_data()
 
     quarter_formatted = max_quarter[:2]

@@ -10,10 +10,10 @@ wheels/
 .venv
 
 # # Data files
-# *.csv
-# *.xlsx
-# *.xls
-# *.xlsb
+*.csv
+*.xlsx
+*.xls
+*.xlsb
 
 # Environment files
 .env
