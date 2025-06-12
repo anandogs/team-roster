@@ -149,6 +149,10 @@ document.addEventListener("alpine:init", () => {
       setTimeout(() => {
         this.populateOptions();
       }, 1000);
+      setTimeout(() => {
+    this.updateLocationOptions();
+    this.updateBillableOptions();
+}, 10000);
     },
 
     // UI Population Methods
