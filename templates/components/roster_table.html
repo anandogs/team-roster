@@ -52,6 +52,8 @@ forcePopulateOptions() {
                 <span class='truncate'>${location}</span>
             </label>
         `).join('');
+          console.log('Location options populated, new innerHTML length:', locationOptions.innerHTML.length);
+
     }
 
     const billableOptions = document.getElementById('billable-options');
