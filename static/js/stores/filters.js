@@ -149,11 +149,38 @@ document.addEventListener("alpine:init", () => {
       setTimeout(() => {
         this.populateOptions();
       }, 1000);
-      setTimeout(() => {
-    this.updateLocationOptions();
-    this.updateBillableOptions();
-}, 10000);
+      this.retryLocationAndBillablePopulation();
     },
+
+    retryLocationAndBillablePopulation() {
+    let attempts = 0;
+    const maxAttempts = 50; // 50 attempts over 10 seconds
+    
+    const tryPopulate = () => {
+        attempts++;
+        
+        const locationOptions = document.getElementById("location-options");
+        const billableOptions = document.getElementById("billable-options");
+        
+        if (locationOptions) {
+            this.updateLocationOptions();
+        }
+        if (billableOptions) {
+            this.updateBillableOptions();
+        }
+        
+        // If both found or max attempts reached, stop trying
+        if ((locationOptions && billableOptions) || attempts >= maxAttempts) {
+            console.log(`Filter population completed after ${attempts} attempts`);
+            return;
+        }
+        
+        // Try again in 200ms
+        setTimeout(tryPopulate, 200);
+    };
+    
+    setTimeout(tryPopulate, 1000); // Start after 1 second
+},
 
     // UI Population Methods
     populateOptions() {
@@ -544,8 +571,6 @@ document.addEventListener("alpine:init", () => {
 
     // Location Methods (No confirmation needed as these don't reset data)
     updateLocationOptions() {
-      console.log('updateLocationOptions - element found:', !!document.getElementById("location-options"));
-
       const locationOptions = document.getElementById("location-options");
       if (locationOptions) {
         locationOptions.innerHTML = this.availableLocations
