@@ -8,6 +8,9 @@
     itemsPerPage: 12,
 
     init() {
+          console.log('Roster table component initialized');
+    console.log('Location dropdown exists:', !!document.getElementById('location-options'));
+
         this.waitForFiltersStoreReady();
 this.$watch('searchQuery', () => {
     this.currentPage = 1;

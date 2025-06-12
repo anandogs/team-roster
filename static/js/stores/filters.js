@@ -153,8 +153,6 @@ document.addEventListener("alpine:init", () => {
 
     // UI Population Methods
     populateOptions() {
-      console.log('populateOptions called, businessUnits:', this.businessUnits?.length, 'locations:', this.availableLocations?.length);
-
       this.populateMonthOptions();
       this.updateCustomerOptions();
       this.updateLocationOptions();
@@ -205,8 +203,6 @@ document.addEventListener("alpine:init", () => {
     // Business Unit Methods (Enhanced)
     updateBusinessUnitOptions() {
       const buOptions = document.getElementById("bu-options");
-      console.log('BU: element found:', !!buOptions, 'data length:', this.businessUnits?.length || 0);
-
       if (buOptions) {
         buOptions.innerHTML = this.businessUnits
           .map(
@@ -544,10 +540,10 @@ document.addEventListener("alpine:init", () => {
 
     // Location Methods (No confirmation needed as these don't reset data)
     updateLocationOptions() {
+      console.log('updateLocationOptions - element found:', !!document.getElementById("location-options"));
+
       const locationOptions = document.getElementById("location-options");
       if (locationOptions) {
-        console.log('Location: populated with', this.availableLocations.length, 'items');
-
         locationOptions.innerHTML = this.availableLocations
           .map(
             (location) => `
