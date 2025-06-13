@@ -779,9 +779,8 @@
             ...Alpine.store("employees").newHires.map((emp) => emp.id),
           ]);
 
-          this.allEmployees = uniqueEmployees.filter(
-            (emp) => !rosterIds.has(emp.EmployeeCode || emp.id)
-          );
+        this.allEmployees = uniqueEmployees;
+
         } catch (error) {
           console.error("Failed to load employees:", error);
           this.allEmployees = [];
