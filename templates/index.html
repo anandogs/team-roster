@@ -14,12 +14,14 @@ scripts %}
 {% endblock %} {% block filter_bar %} {% include 'components/filter_bar.html' %}
 {% endblock %} {% block content %}
 <div class="space-y-6">
-  <div class="mt-4">
-    <h1 class="text-2xl font-bold tracking-tight">Team Roster Management</h1>
-    <p class="text-neutral-400">
-      Manage your team roster and track gross margin.
-    </p>
-  </div>
+<div class="mt-4 flex items-center gap-6">
+  <img src="{{ url_for('static', filename='images/sonata-logo.png') }}" 
+       alt="Sonata Software" 
+       class="h-20 w-auto">
+  <img src="{{ url_for('static', filename='images/margin-craft-logo.png') }}" 
+       alt="Margin Craft" 
+       class="h-24 w-auto">
+</div>
 
   <!-- Tabs -->
   <div>
