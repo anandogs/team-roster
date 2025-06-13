@@ -86,6 +86,15 @@
           <span class="text-sm font-medium text-neutral-300">Current GM</span>
           <span class="text-lg font-bold" id="current-gm">0%</span>
         </div>
+        <!-- Add this after the Revenue row -->
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
+          <span class="text-sm font-medium text-neutral-300">Plan Revenue</span>
+          <span class="text-lg font-bold text-neutral-100" id="plan-revenue"
+            >$0</span
+          >
+        </div>
         <div
           class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
         >
@@ -99,7 +108,7 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-neutral-300"
-            >Progress to Plan</span
+            >Plan GM% Achievement</span
           >
           <span class="text-sm font-bold" id="progress-text">0%</span>
         </div>
@@ -144,12 +153,6 @@
     }).format(value * 1000);
   }
 
-  function getProgressColor(percentage) {
-    if (percentage >= 100) return "bg-emerald-500";
-    if (percentage >= 80) return "bg-amber-500";
-    return "bg-rose-500";
-  }
-
   function getTextColor(currentGM, planGM) {
     if (currentGM >= planGM) return "text-emerald-400";
     if (currentGM >= 60) return "text-amber-400";
@@ -178,7 +181,6 @@
       if (auditLog.length === 0) {
         return 0;
       }
-
 
       // Send the entire audit log to get GM impact calculations
       const response = await fetch("/api/gm-impact", {
@@ -271,7 +273,7 @@
         ? gmImpactFromAuditLog
         : await calculateTotalGMImpact();
 
-        if (filters.month === "Quarter") {
+    if (filters.month === "Quarter") {
       totalGMImpact = totalGMImpact * 3;
     }
 
@@ -282,6 +284,25 @@
       "$" + Math.floor(totalRevenue).toLocaleString("en-US");
 
     animateNumber("revenue", totalRevenue, false, true);
+
+    // Deduplicate plan revenue by BU and Customer before summing
+    const uniquePlanRevenue = new Map();
+    filteredData.forEach((item) => {
+      const key = `${item.BU}_${item.Customer}`;
+      if (!uniquePlanRevenue.has(key)) {
+        uniquePlanRevenue.set(key, item.PlanRevenue || 0);
+      }
+    });
+    const planRevenueForDisplay =
+      Array.from(uniquePlanRevenue.values()).reduce(
+        (sum, revenue) => sum + revenue,
+        0
+      ) * 1000000;
+    document.getElementById("plan-revenue").textContent =
+      "$" + Math.floor(planRevenueForDisplay).toLocaleString("en-US");
+
+    // Then use planRevenueForDisplay in your animation call
+    animateNumber("plan-revenue", planRevenueForDisplay, false, true);
 
     const allocationCost = filteredData.reduce(
       (sum, item) => sum + (item.AllocationCost || 0),
@@ -482,22 +503,18 @@
           100
         )}`;
 
-        const progressBar = document.getElementById("progress-bar");
-        progressBar.style.width = `${progressPercentage}%`;
-        progressBar.className = `h-full rounded-full ${getProgressColor(
-          progressPercentage
-        )}`;
+        
       });
   }
 
   // Update GM summary on page load
   updateGMSummary();
   fetchGMDetails();
-document.addEventListener('alpine:init', () => {
-  // Initialize after Alpine stores are ready
-  setTimeout(async () => {
-    const initialImpact = await calculateTotalGMImpact();
-    await updateFilteredGMData(initialImpact);
-  }, 100);
-});
+  document.addEventListener("alpine:init", () => {
+    // Initialize after Alpine stores are ready
+    setTimeout(async () => {
+      const initialImpact = await calculateTotalGMImpact();
+      await updateFilteredGMData(initialImpact);
+    }, 100);
+  });
 </script>
