@@ -44,6 +44,28 @@ get totalPages() {
     return Math.ceil(this.filteredEmployees.length / this.itemsPerPage);
 },
 
+getVisiblePages() {
+    const total = this.totalPages;
+    const current = this.currentPage;
+    const windowSize = 5;
+    
+    if (total <= windowSize) {
+        return Array.from({length: total}, (_, i) => i + 1);
+    }
+    
+    // Calculate start of window
+    let start = Math.max(1, current - Math.floor(windowSize / 2));
+    let end = start + windowSize - 1;
+    
+    // Adjust if we're near the end
+    if (end > total) {
+        end = total;
+        start = Math.max(1, end - windowSize + 1);
+    }
+    
+    return Array.from({length: end - start + 1}, (_, i) => start + i);
+},
+
 get paginatedEmployees() {
     const start = (this.currentPage - 1) * this.itemsPerPage;
     const end = start + this.itemsPerPage;
@@ -612,13 +634,11 @@ removeEmployee(employee) {
             :disabled="currentPage === 1"
             class="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            ← Previous
+            <
           </button>
 
-          <template
-            x-for="page in Array.from({length: totalPages}, (_, i) => i + 1)"
-            :key="page"
-          >
+          <!-- Page numbers with smart truncation -->
+          <template x-for="(page, index) in getVisiblePages()" :key="index">
             <button
               @click="goToPage(page)"
               :class="page === currentPage ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'"
@@ -633,8 +653,14 @@ removeEmployee(employee) {
             :disabled="currentPage === totalPages"
             class="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Next →
+            >
           </button>
+
+          <!-- Total pages indicator -->
+          <span class="ml-4 text-xs text-neutral-500">
+            Page <span x-text="currentPage"></span> of
+            <span x-text="totalPages"></span>
+          </span>
         </div>
       </div>
     </div>
