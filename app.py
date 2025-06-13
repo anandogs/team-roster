@@ -44,18 +44,97 @@ def get_cached_data():
 
     return _cached_rac_data
 
+_cached_permissions_data = None
+_permissions_cache_timestamp = None
+
+def get_cached_permissions():
+    global _cached_permissions_data, _permissions_cache_timestamp
+
+    current_time = datetime.now()
+    if (_cached_permissions_data is None or _permissions_cache_timestamp is None or 
+        (current_time - _permissions_cache_timestamp).seconds > 3600):
+        _cached_permissions_data = load_user_permissions()
+        _permissions_cache_timestamp = current_time
+
+    return _cached_permissions_data
+
+def get_user_bus():
+    """Get the BUs accessible to current user based on permissions.csv"""
+    user = get_current_user()
+    user_email = user['email']
+    
+    if user_email == 'Unknown':
+        return []  # Return empty list = no data shown
+    
+    try:
+        permissions_df = get_cached_permissions()
+        
+        if permissions_df.empty:
+            app.logger.warning("Permissions data is empty, no data will be shown")
+            return []  # No data shown if permissions file unavailable
+        
+        # Find user's row (assuming columns are 'Email' and 'BU')
+        user_row = permissions_df[permissions_df['Email'].str.lower() == user_email.lower()]
+        
+        if user_row.empty:
+            app.logger.info(f"User {user_email} not found in permissions file, no data will be shown")
+            return []  # User not in permissions = no data shown
+        
+        bu_value = user_row['BU'].iloc[0]
+        
+        # Handle 'All' case
+        if bu_value == 'All':
+            return None  # No filtering needed = show all data
+        
+        # Handle multiple BUs separated by commas
+        if ',' in str(bu_value):
+            bus = [bu.strip() for bu in str(bu_value).split(',')]
+            return bus
+        else:
+            # Single BU
+            return [str(bu_value).strip()]
+            
+    except Exception as e:
+        app.logger.error(f"Error getting user BUs for {user_email}: {e}")
+        return []  # Return empty list on error = no data shown
+
 direct_costs = generate_sample_direct_costs()
 
-customer_list = [{'PrismCustomerGroup': 'Sony', 'FinalBU': 'US TMTE'}, {'PrismCustomerGroup': 'Aquent', 'FinalBU': 'US TMTE'}]
-customer_df = pd.DataFrame(customer_list)
 max_quarter = 'Q1FY2026'
 
+def load_user_permissions():
+    """Load user permissions from Azure storage"""
+    try:
+        account_url = "https://sonataonefpa.blob.core.windows.net/"
+        container_name = "testpoccontainer"
+        credential = get_credential()
+        blob_service_client = BlobServiceClient(account_url, credential=credential)
+        container_client = blob_service_client.get_container_client(container_name)
+        
+        # Download permissions.csv
+        permissions_blob_client = container_client.get_blob_client("permissions.csv")
+        permissions_download_stream = permissions_blob_client.download_blob()
+        permissions_content = io.BytesIO(permissions_download_stream.readall())
+        permissions_df = pd.read_csv(permissions_content, low_memory=False)
+        
+        return permissions_df
+    except Exception as e:
+        app.logger.error(f"Error loading permissions: {e}")
+        return pd.DataFrame()  # Return empty DataFrame on error
+
+
 def get_current_user():
-    return {
-        'name': request.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', 'Unknown'),
-        'email': request.headers.get('X-MS-CLIENT-PRINCIPAL-ID', 'Unknown'),
-        'provider': request.headers.get('X-MS-CLIENT-PRINCIPAL-IDP', 'Unknown')
-    }
+    if "IDENTITY_ENDPOINT" in os.environ:
+        return {
+            'email': request.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', 'Unknown'),
+        }
+
+    else:
+        return {
+            'email': 'Anando.Ghose@sonata-software.com'
+        }
+    
+    
 
 def get_data():
     account_url = "https://sonataonefpa.blob.core.windows.net/"
@@ -72,7 +151,7 @@ def get_data():
     
     return cost_df
 
-def load_employees(customer_list: list | None = None):
+def load_employees(bu_filter: list | None = None):
     try:
         df = get_cached_data()
         relevant_columns = [
@@ -112,10 +191,13 @@ def load_employees(customer_list: list | None = None):
         grouped_df['CPC_M3'] = grouped_df['TotalCost_M3'] / grouped_df['TotalFTECapped_M3']
         grouped_df['CPC_QTR'] = grouped_df['TotalCost_QTR'] / grouped_df['TotalFTECapped_QTR'] / 3
         
-        if customer_list:
-            filtered_df = grouped_df[grouped_df['PrismCustomerGroup'].isin(customer_list)].reset_index(drop=True)
+        if bu_filter is None:
+            filtered_df = grouped_df.copy()
+        elif len(bu_filter) == 0:
+            filtered_df = pd.DataFrame(columns=grouped_df.columns)
         else:
-            filtered_df = grouped_df
+            filtered_df = grouped_df[grouped_df['FinalBU'].isin(bu_filter)].reset_index(drop=True)
+
         total_fte_idx = filtered_df.columns.get_loc('TotalFTECapped_M1')
         columns_to_drop = filtered_df.columns[total_fte_idx:]
         columns_to_drop = columns_to_drop.drop('id')
@@ -126,36 +208,17 @@ def load_employees(customer_list: list | None = None):
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 
-def calculate_gm(filter_state: FilterState):
-    current_gm = 60
-    filtered_revenue = 100
-    applicable_direct_costs = 0
-
-    return {
-        "currentGM": current_gm,
-        "revenue": filtered_revenue,
-        "directCosts": applicable_direct_costs
-    }
-
-def save_employee_data(df):
-    """Save employee data back to storage"""
-    try:
-        df.to_csv('storage/employees.csv', index=False)
-        return True
-    except Exception as e:
-        return False
-
 @app.route('/')
 def home():
     user = get_current_user()
-    app.logger.info(f"USER ACCESS - Name: {user['name']}, Email: {user['email']}, IP: {request.remote_addr}")
-    app.logger.info(f"ALL HEADERS: {dict(request.headers)}")
+    app.logger.info(f"USER ACCESS - Name: {user['email']}")
     return render_template('index.html')
 
 @app.route('/api/total-employees')
 def get_total_employees():
     """Get all possible employees (the pool)"""
-    _,_,df = load_employees(customer_df['PrismCustomerGroup'].to_list())
+    user_bus = get_user_bus()
+    _,_,df = load_employees(user_bus)
     return jsonify(df.to_dict(orient='records'))
 
 @app.route('/api/gm-details')
@@ -187,6 +250,7 @@ def get_gm_details():
     odc = pd.read_csv(odc_content, low_memory=False)
     cost = get_cached_data()
 
+
     quarter_formatted = max_quarter[:2]
     filtered_revenue = revenue[revenue['Quarter'] == quarter_formatted].reset_index(drop=True)
     filtered_plan = plan[plan['Quarter'] == quarter_formatted].reset_index(drop=True)
@@ -198,7 +262,18 @@ def get_gm_details():
     grouped_filtered_plan.drop(columns=['PlanCost', 'Quarter', 'RAC'], inplace=True)
     filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
     merged_with_plan_gm = pd.merge(filtered_revenue, grouped_filtered_plan, on='Customer', how='left')
-    filtered_plan_gm = merged_with_plan_gm[merged_with_plan_gm['Customer'].isin(customer_df['PrismCustomerGroup'].to_list())].reset_index(drop=True)
+    user_bus = get_user_bus()
+
+    if user_bus is None:
+        # User has 'All' access - no filtering
+        filtered_plan_gm = merged_with_plan_gm.copy()
+    elif len(user_bus) == 0:
+        # User not in permissions - show no data
+        filtered_plan_gm = pd.DataFrame(columns=merged_with_plan_gm.columns)
+    else:
+        # User has specific BU access
+        filtered_plan_gm = merged_with_plan_gm[merged_with_plan_gm['BU'].isin(user_bus)].reset_index(drop=True)
+
     filtered_plan_gm.drop(columns=['FinancialYear'], inplace=True)
 
     grouped_gm = cost.groupby(['FinalBU', 'PrismCustomerGroup'])[
@@ -230,6 +305,8 @@ def get_gm_details():
     )
     with_odc['OtherDirectCosts'] = with_odc['Total_Revenue'] * with_odc['ODC']
     with_odc.drop(columns=['ODC'], inplace=True)
+    with_odc = with_odc.fillna(0)
+    with_odc = with_odc.replace([float('inf'), float('-inf')], 0)
 
     return jsonify(with_odc.to_dict(orient='records'))
 
@@ -396,7 +473,8 @@ def calculate_gm_impact():
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
     """Get all employees data"""
-    _,df,_ = load_employees(customer_df['PrismCustomerGroup'].to_list())
+    user_bus = get_user_bus()
+    _,df,_ = load_employees(user_bus)
     month = request.args.get('month')
     location = request.args.get('location')
 
@@ -442,8 +520,23 @@ def get_quarter_months(fiscal_quarter):
 
 @app.route('/api/customers')
 def get_customers():
-    """Get customers for the user"""
-    return jsonify(customer_df.to_dict(orient='records'))
+    """Get customers for the user based on their BU access"""
+    user_bus = get_user_bus()
+    df = get_cached_data()
+    
+    if user_bus is None:
+        # User has 'All' access
+        filtered_df = df.copy()
+    elif len(user_bus) == 0:
+        # User not in permissions - return empty
+        return jsonify([])
+    else:
+        # User has specific BU access
+        filtered_df = df[df['FinalBU'].isin(user_bus)]
+    
+    # Get unique customers for the accessible BUs
+    unique_customers = filtered_df[['PrismCustomerGroup', 'FinalBU']].drop_duplicates()
+    return jsonify(unique_customers.to_dict(orient='records'))
 
 @app.route('/api/period')
 def get_period():
@@ -455,47 +548,58 @@ def get_period():
 
 
 
-@app.route('/api/employees/<employee_id>', methods=['PATCH'])
-def update_employee(employee_id):
-    """Update employee FTE values"""
-    try:
-        _,df,_ = load_employees(customer_list)
-        data = request.get_json()
-        
-        if employee_id not in df['EmployeeCode'].values:
-            return jsonify({'error': 'Employee not found'}), 404
-        
-        mask = df['EmployeeCode'] == employee_id
-        for key, value in data.items():
-            if key.startswith('fte'):
-                df.loc[mask, key] = float(value)
-        
-        df.loc[mask, 'fteQuarter'] = df.loc[mask, ['fteApril', 'fteMay', 'fteJune']].mean(axis=1).round(2)
-        
-        if save_employee_data(df):
-            return jsonify(df[mask].to_dict(orient='records')[0])
-        else:
-            return jsonify({'error': 'Failed to save changes'}), 500
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/direct-costs')
 def get_direct_costs():
     return jsonify([c.model_dump() for c in direct_costs])
 
+def calculate_gm_for_user(user_bus):
+    """Calculate GM based on user's BU access"""
+    try:
+        # Get the data filtered by user's BUs
+        if user_bus is None:
+            # User has 'All' access
+            _, df, _ = load_employees(None)
+        else:
+            # User has specific BU access
+            _, df, _ = load_employees(user_bus)
+        
+        if df.empty:
+            return {"currentGM": 0, "revenue": 0, "directCosts": 0}
+        
+        # Calculate revenue and GM based on the filtered data
+        # You'll need to implement this based on your business logic
+        # For now, using placeholder values
+        filtered_revenue = len(df) * 100  # Placeholder calculation
+        current_gm = 60  # Placeholder
+        
+        return {
+            "currentGM": current_gm,
+            "revenue": filtered_revenue,
+            "directCosts": 0
+        }
+        
+    except Exception as e:
+        app.logger.error(f"Error calculating GM for user: {e}")
+        return {"currentGM": 0, "revenue": 0, "directCosts": 0}
+
+
 @app.route('/api/gm-state')
 def get_gm_state():
-    filter_state = FilterState(
-        month=request.args.get('month', 'Quarter'),
-        businessUnit=request.args.get('businessUnit', ''),
-        customer=request.args.get('customer', ''),
-        location=request.args.get('location', 'All'),
-        billableStatus=request.args.get('billableStatus', 'All'),
-        businessUnits=list(bu_to_customers.keys())
-    )
+    # Remove the old FilterState logic and use BU-based filtering
+    user_bus = get_user_bus()
     
-    gm_data = calculate_gm(filter_state)
+    # If user has no access, return minimal GM data
+    if user_bus is not None and len(user_bus) == 0:
+        return jsonify({
+            "startingGM": 0,
+            "currentGM": 0,
+            "planGM": 0,
+            "revenue": 0,
+            "directCosts": []
+        })
+    
+    # Calculate GM based on user's BU access
+    gm_data = calculate_gm_for_user(user_bus)
     
     return jsonify({
         "startingGM": 60,
