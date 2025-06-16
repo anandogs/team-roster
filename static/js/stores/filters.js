@@ -158,7 +158,7 @@ document.addEventListener("alpine:init", () => {
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
       ];
-      this.selectedBusinessUnits = [...this.businessUnits];
+    this.selectedBusinessUnits = this.businessUnits.length > 0 ? [this.businessUnits[0]] : [];
 
       if (periodData.QTR) {
         document.querySelector(".bg-neutral-800 .text-white").textContent =
@@ -252,28 +252,24 @@ document.addEventListener("alpine:init", () => {
       });
     },
 
-    // Business Unit Methods (Enhanced)
     updateBusinessUnitOptions() {
       const buOptions = document.getElementById("bu-options");
       if (buOptions) {
         buOptions.innerHTML = this.businessUnits
           .map(
             (bu) => `
-                <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
-                    <input
-                        type="checkbox"
-                        value="${bu}"
-                        class="bu-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                        onchange="toggleBusinessUnitWithConfirmation('${bu}', this.checked)"
-                        ${
-                          this.selectedBusinessUnits.includes(bu)
-                            ? "checked"
-                            : ""
-                        }
-                    >
-                    <span class="truncate">${bu}</span>
-                </label>
-            `
+            <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
+                <input
+                    type="radio"
+                    name="business-unit-selection"
+                    value="${bu}"
+                    class="mr-3 h-4 w-4 border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                    onchange="selectBusinessUnitWithConfirmation('${bu}')"
+                    ${this.selectedBusinessUnits.includes(bu) ? "checked" : ""}
+                >
+                <span class="truncate">${bu}</span>
+            </label>
+        `
           )
           .join("");
 
@@ -281,32 +277,17 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    async toggleBusinessUnitWithConfirmation(bu, isChecked) {
-      // Store previous state
+    async selectBusinessUnitWithConfirmation(bu) {
       const previousState = [...this.selectedBusinessUnits];
+      this.selectedBusinessUnits = [bu]; // Only select one BU
 
-      // Apply the change temporarily
-      if (isChecked) {
-        if (!this.selectedBusinessUnits.includes(bu)) {
-          this.selectedBusinessUnits.push(bu);
-        }
-      } else {
-        this.selectedBusinessUnits = this.selectedBusinessUnits.filter(
-          (b) => b !== bu
-        );
-      }
-
-      // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation(
         "businessUnit"
       );
 
       if (!confirmed) {
-        // Revert the change
         this.selectedBusinessUnits = previousState;
-        // The checkbox state will be reverted by revertFilterChange
       } else {
-        // Update UI elements
         this.updateBusinessUnitDisplay();
         this.updateCustomerOptions();
         const filteredCustomers = this.getFilteredCustomers();
@@ -315,8 +296,7 @@ document.addEventListener("alpine:init", () => {
         } else {
           this.selectedCustomers = [];
         }
-        this.updateCustomerDisplay(); 
-        this.updateSelectAllBusinessUnitState();
+        this.updateCustomerDisplay();
       }
     },
     getFilteredCustomers() {
@@ -343,106 +323,22 @@ document.addEventListener("alpine:init", () => {
       }
 
       this.updateBusinessUnitDisplay();
-      this.updateSelectAllBusinessUnitState();
       this.updateFilters();
     },
 
-    async toggleAllBusinessUnitsWithConfirmation(selectAll) {
-      // Store previous state
-      const previousState = [...this.selectedBusinessUnits];
 
-      // Apply the change temporarily
-      if (selectAll) {
-        this.selectedBusinessUnits = [...this.businessUnits];
-      } else {
-        this.selectedBusinessUnits = [];
-      }
-
-      // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation(
-        "businessUnit"
-      );
-
-      if (!confirmed) {
-        // Revert the change
-        this.selectedBusinessUnits = previousState;
-        // The UI will be reverted by revertFilterChange
-      } else {
-        // Update checkboxes
-        document.querySelectorAll(".bu-checkbox").forEach((checkbox) => {
-          checkbox.checked = selectAll;
-        });
-        this.updateBusinessUnitDisplay();
-      }
-    },
-
-    toggleAllBusinessUnits(selectAll) {
-      if (selectAll) {
-        this.selectedBusinessUnits = [...this.businessUnits];
-      } else {
-        this.selectedBusinessUnits = [];
-      }
-
-      document.querySelectorAll(".bu-checkbox").forEach((checkbox) => {
-        checkbox.checked = selectAll;
-      });
-
-      this.updateBusinessUnitDisplay();
-      this.updateFilters();
-    },
-
-    updateSelectAllBusinessUnitState() {
-      const selectAllCheckbox = document.getElementById(
-        "select-all-business-units"
-      );
-      if (!selectAllCheckbox) return;
-
-      const allSelected =
-        this.selectedBusinessUnits.length === this.businessUnits.length;
-      const noneSelected = this.selectedBusinessUnits.length === 0;
-
-      selectAllCheckbox.checked = allSelected;
-      selectAllCheckbox.indeterminate = !allSelected && !noneSelected;
-    },
 
     updateBusinessUnitDisplay() {
       const displayElement = document.getElementById("bu-display");
-      const clearButton = document.getElementById("clear-bu");
-
       if (!displayElement) return;
 
       if (this.selectedBusinessUnits.length === 0) {
-        displayElement.textContent = "No Business Units";
-        if (clearButton) clearButton.classList.remove("hidden");
-      } else if (
-        this.selectedBusinessUnits.length === this.businessUnits.length
-      ) {
-        displayElement.textContent = `All Business Units (${this.businessUnits.length})`;
-        if (clearButton) clearButton.classList.add("hidden");
-      } else if (this.selectedBusinessUnits.length === 1) {
-        displayElement.textContent = this.selectedBusinessUnits[0];
-        if (clearButton) clearButton.classList.remove("hidden");
+        displayElement.textContent = "Select Business Unit";
       } else {
-        displayElement.textContent = `${this.selectedBusinessUnits.length} Business Units`;
-        if (clearButton) clearButton.classList.remove("hidden");
+        displayElement.textContent = this.selectedBusinessUnits[0];
       }
     },
 
-    clearAllBusinessUnits() {
-      this.selectedBusinessUnits = [];
-
-      document.querySelectorAll(".bu-checkbox").forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-
-      const selectAllCheckbox = document.getElementById(
-        "select-all-business-units"
-      );
-      if (selectAllCheckbox) selectAllCheckbox.checked = false;
-
-      this.updateBusinessUnitDisplay();
-      this.updateFilters();
-    },
 
     // Customer Methods (Enhanced)
     updateCustomerOptions() {
@@ -825,10 +721,10 @@ function toggleBusinessUnitWithConfirmation(bu, isChecked) {
   Alpine.store("filters").toggleBusinessUnitWithConfirmation(bu, isChecked);
 }
 
-function toggleAllBusinessUnitsWithConfirmation(selectAll) {
-  Alpine.store("filters").toggleAllBusinessUnitsWithConfirmation(selectAll);
-}
-
 function selectCustomerWithConfirmation(customer) {
   Alpine.store("filters").selectCustomerWithConfirmation(customer);
+}
+
+function selectBusinessUnitWithConfirmation(bu) {
+  Alpine.store("filters").selectBusinessUnitWithConfirmation(bu);
 }
