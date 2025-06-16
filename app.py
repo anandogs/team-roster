@@ -573,6 +573,10 @@ def calculate_gm_impact():
             # Calculate the GM impact
             fte_change = gmData.get('fteChange', 0)
             gm_impact = fte_change * cpc_used
+            period = data.get('period')
+            print(period)
+            if period == 'Quarter':
+                gm_impact = gm_impact * 3
             
             # Add GM impact to the entry
             entry['gmImpact'] = {

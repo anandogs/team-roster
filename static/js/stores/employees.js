@@ -157,6 +157,7 @@ document.addEventListener("alpine:init", () => {
           body: JSON.stringify({
             auditLog: currentLog,
             latestEntry: entry,
+            period: Alpine.store("filters").month,
           }),
         });
 
