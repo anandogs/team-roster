@@ -16,6 +16,73 @@
         </div>
         <div
           class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+          x-data="{ editing: false, additionalRevenue: 0, originalValue: 0 }"
+          x-init="
+    $nextTick(() => {
+      const input = document.getElementById('additional-revenue-input');
+      if (input) {
+        additionalRevenue = parseFloat(input.value) || 0;
+        originalValue = additionalRevenue;
+      }
+    })
+  "
+          :disabled="!$store.filters.canMakeChanges"
+          :class="!$store.filters.canMakeChanges ? 'opacity-50 cursor-not-allowed' : ''"
+        >
+          <span class="text-sm font-medium text-neutral-300">Addl. Rev</span>
+          <div class="flex items-center gap-1">
+            <span class="text-lg font-bold text-neutral-100">$</span>
+            <input
+              type="number"
+              id="additional-revenue-input"
+              class="w-24 bg-neutral-700 text-right text-lg font-bold text-neutral-100 rounded px-2 py-1 focus:outline-none"
+              x-model="additionalRevenue"
+              @focus="if ($store.filters.canMakeChanges) { editing = true }"
+              :readonly="!editing || !$store.filters.canMakeChanges"
+              :disabled="!$store.filters.canMakeChanges"
+              :class="!$store.filters.canMakeChanges ? 'cursor-not-allowed opacity-50' : ''"
+            />
+            <template x-if="editing">
+              <div class="flex flex-col gap-0 ml-1">
+                <button
+                  class="text-green-400 hover:text-green-300 transition-colors text-xs leading-none"
+                  @click="
+            editing = false;
+            originalValue = additionalRevenue;
+            $nextTick(() => {
+              document.getElementById('additional-revenue-input').blur();
+              window.dispatchEvent(new CustomEvent('additional-revenue-changed', { detail: { value: additionalRevenue } }));
+            });
+          "
+                  title="Save"
+                >
+                  ✓
+                </button>
+                <button
+                  class="text-neutral-400 hover:text-white transition-colors text-xs leading-none"
+                  @click="
+            additionalRevenue = originalValue;
+            editing = false;
+            $nextTick(() => document.getElementById('additional-revenue-input').blur());
+          "
+                  title="Cancel"
+                >
+                  ✕
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
+        >
+          <span class="text-sm font-medium text-neutral-300">Total Rev.</span>
+          <span class="text-lg font-bold text-neutral-100" id="total-revenue"
+            >$0</span
+          >
+        </div>
+        <div
+          class="flex items-center justify-between rounded-md bg-neutral-800 p-3"
         >
           <span class="text-sm font-medium text-neutral-300">Starting GM</span>
           <span class="text-lg font-bold text-neutral-100" id="starting-gm"
@@ -132,9 +199,15 @@
 
 <script>
   let userEnteredODC = 0;
+  let userEnteredAdditionalRevenue = 0;
 
   window.addEventListener("odc-changed", function (e) {
     userEnteredODC = e.detail.value;
+    updateFilteredGMData();
+  });
+
+  window.addEventListener("additional-revenue-changed", function (e) {
+    userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0;
     updateFilteredGMData();
   });
 
@@ -291,6 +364,14 @@
 
     animateNumber("revenue", totalRevenue, false, true);
 
+    const totalRevenueAmount =
+      totalRevenue + (userEnteredAdditionalRevenue || 0);
+
+    document.getElementById("total-revenue").textContent =
+      "$" + Math.floor(totalRevenueAmount).toLocaleString("en-US");
+
+    animateNumber("total-revenue", totalRevenueAmount, false, true);
+
     // Deduplicate plan revenue by BU and Customer before summing
     const uniquePlanRevenue = new Map();
     filteredData.forEach((item) => {
@@ -348,8 +429,26 @@
       ? (totalGMImpact / totalRevenue) * 100
       : 0;
 
+    // Add additional revenue to total revenue for GM calculation
+    const adjustedTotalRevenue =
+      totalRevenue + (userEnteredAdditionalRevenue || 0);
+
+    // Recalculate starting GM with adjusted revenue
+    const adjustedForecastedGM = adjustedTotalRevenue - allocationCost;
+    const adjustedForecastedGMPercentage =
+      (adjustedForecastedGM / adjustedTotalRevenue) * 100;
+
+    // Calculate current GM with additional revenue factored in
+    const adjustedStartingODCPerc = (odc / adjustedTotalRevenue) * 100;
+    const adjustedOdcDiff = adjustedStartingODCPerc - odcPerc;
+    const adjustedGmImpactPercentage = totalGMImpact
+      ? (totalGMImpact / adjustedTotalRevenue) * 100
+      : 0;
+
     let currentGMPercentage =
-      forecastedGMPercentage + odcDiff - gmImpactPercentage;
+      adjustedForecastedGMPercentage +
+      adjustedOdcDiff -
+      adjustedGmImpactPercentage;
 
     document.getElementById("current-gm").textContent =
       currentGMPercentage.toFixed(1) + "%";
@@ -475,7 +574,6 @@
 
     requestAnimationFrame(updateNumber);
   }
-
 
   fetchGMDetails();
   document.addEventListener("alpine:init", () => {
