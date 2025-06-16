@@ -43,6 +43,19 @@ document.addEventListener("alpine:init", () => {
         window.location.reload();
       }, 2000);
     },
+    // Add this getter to the filters store
+get canMakeChanges() {
+  return this.selectedCustomers.length === 1;
+},
+
+get customerSelectionMessage() {
+  if (this.selectedCustomers.length === 0) {
+    return "No customer selected. Please select one customer to continue.";
+  } else if (this.selectedCustomers.length > 1) {
+    return `${this.selectedCustomers.length} customers selected. Please select only one customer to make changes.`;
+  }
+  return "";
+},
 
     // Enhanced filter update method with confirmation
     async updateFiltersWithConfirmation(filterType = "general") {

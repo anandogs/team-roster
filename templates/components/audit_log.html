@@ -159,87 +159,47 @@
       },
 
       // Replace the downloadAuditLog function in audit_log.html with this:
-
       downloadAuditLog() {
         if (this.auditLog.length === 0) return;
 
-        // CSV Headers
-        const headers = [
-          "Timestamp",
-          "Action",
-          "Employee Name",
-          "Old Value",
-          "New Value",
-          "Change",
-          "Description",
-        ];
+        // Get current filter state
+        const filters = Alpine.store("filters");
+        const filterData = {
+          month: filters.month,
+          selectedBusinessUnits: filters.selectedBusinessUnits,
+          selectedCustomers: filters.selectedCustomers,
+          selectedLocations: filters.selectedLocations,
+          selectedBillableStatus: filters.selectedBillableStatus,
+        };
 
-        // Convert audit log entries to CSV rows
-        const csvRows = this.auditLog.map((entry) => {
-          // Format timestamp to readable format
-          const timestamp = new Date(entry.timestamp).toLocaleString();
+        // Create a form and submit it as POST
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/api/download-roster-analysis";
+        form.style.display = "none";
 
-          // Clean action name
-          // Clean action name
-          const action =
-            entry.action === "EDIT_FTE"
-              ? "FTE Update"
-              : entry.action === "REMOVE_EMPLOYEE"
-              ? "Employee Removal"
-              : entry.action === "ADD_EMPLOYEE"
-              ? "Employee Addition"
-              : "Unknown Action";
+        const auditInput = document.createElement("input");
+        auditInput.type = "hidden";
+        auditInput.name = "audit_log";
+        auditInput.value = JSON.stringify(this.auditLog);
 
-          // Handle values (escape commas and quotes)
-          const escapeCsvValue = (value) => {
-            if (value === null || value === undefined) return "";
-            const str = String(value);
-            // If contains comma, quote, or newline, wrap in quotes and escape internal quotes
-            if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-              return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-          };
+        const filterInput = document.createElement("input");
+        filterInput.type = "hidden";
+        filterInput.name = "filters";
+        filterInput.value = JSON.stringify(filterData);
 
-          const oldVal = parseFloat(entry.oldValue) || 0;
-          const newVal = parseFloat(entry.newValue) || 0;
-          const change = newVal - oldVal;
-
-          return [
-            escapeCsvValue(timestamp),
-            escapeCsvValue(action),
-            escapeCsvValue(entry.employeeName),
-            escapeCsvValue(entry.oldValue),
-            escapeCsvValue(entry.newValue),
-            escapeCsvValue(change),
-            escapeCsvValue(entry.description),
-          ].join(",");
-        });
-
-        // Combine headers and rows
-        const csvContent = [headers.join(","), ...csvRows].join("\n");
-
-        // Create and download the file
-        const dataBlob = new Blob([csvContent], {
-          type: "text/csv;charset=utf-8;",
-        });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `roster-changes-${
-          new Date().toISOString().split("T")[0]
-        }.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        form.appendChild(auditInput);
+        form.appendChild(filterInput);
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
 
         // Show success toast
         window.dispatchEvent(
           new CustomEvent("show-toast", {
             detail: {
-              title: "CSV Downloaded",
-              description: `Downloaded ${this.auditLog.length} audit log entries.`,
+              title: "Excel Download Started",
+              description: `Generating roster analysis with ${this.auditLog.length} changes...`,
               type: "success",
             },
           })

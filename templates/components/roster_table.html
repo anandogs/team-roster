@@ -222,6 +222,21 @@ removeEmployee(employee) {
   <!-- Roster Cards -->
   <template x-if="!isLoading">
     <div class="space-y-6">
+      <div
+        x-show="!$store.filters.canMakeChanges"
+        class="bg-amber-900/20 border border-amber-600 rounded-lg p-4 mb-6"
+      >
+        <div class="flex items-center">
+          <svg class="w-5 h-5 text-amber-400 mr-3">...</svg>
+          <div>
+            <h3 class="text-amber-400 font-medium">
+              Select One Customer to Continue
+            </h3>
+            <p class="text-amber-200 text-sm" x-text="$store.filters.customerSelectionMessage">
+            </p>
+          </div>
+        </div>
+      </div>
       <!-- Search, Add Employee, and Filters Row -->
       <div
         class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
@@ -259,6 +274,8 @@ removeEmployee(employee) {
             @click="openAddEmployeeModal()"
             title="Add Employee"
             style="width: 40px; height: 40px; min-width: 40px"
+            :disabled="!$store.filters.canMakeChanges"
+            :class="!$store.filters.canMakeChanges ? 'opacity-50 cursor-not-allowed bg-neutral-600 hover:bg-neutral-600' : 'bg-green-600 hover:bg-green-700'"
           >
             <svg
               class="w-5 h-5"
@@ -524,6 +541,8 @@ removeEmployee(employee) {
                       @click="startEdit(employee)"
                       class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-md transition-colors"
                       title="Edit FTE"
+                      :disabled="!$store.filters.canMakeChanges"
+                      :class="[!$store.filters.canMakeChanges ? 'opacity-50 cursor-not-allowed' : '', 'hover:bg-neutral-800 hover:text-neutral-400']"
                     >
                       <svg
                         class="w-4 h-4"
@@ -543,6 +562,8 @@ removeEmployee(employee) {
                       @click="removeEmployee(employee)"
                       class="p-2 text-red-400 hover:text-red-300 hover:bg-neutral-700 rounded-md transition-colors"
                       title="Remove from roster"
+                      :disabled="!$store.filters.canMakeChanges"
+                      :class="[!$store.filters.canMakeChanges ? 'opacity-50 cursor-not-allowed' : '', 'hover:bg-neutral-800']"
                     >
                       <svg
                         class="w-4 h-4"

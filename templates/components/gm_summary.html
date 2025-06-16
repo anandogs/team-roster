@@ -34,6 +34,8 @@
       }
     })
   "
+          :disabled="!$store.filters.canMakeChanges"
+          :class="!$store.filters.canMakeChanges ? 'opacity-50 cursor-not-allowed' : ''"
         >
           <span class="text-sm font-medium text-neutral-300">ODC</span>
           <div class="flex items-center gap-1">
@@ -47,6 +49,10 @@
               x-model="odcValue"
               @focus="editing = true"
               :readonly="!editing"
+              @focus="if ($store.filters.canMakeChanges) { editing = true }"
+              :readonly="!editing || !$store.filters.canMakeChanges"
+              :disabled="!$store.filters.canMakeChanges"
+              :class="!$store.filters.canMakeChanges ? 'cursor-not-allowed opacity-50' : ''"
             />
             <span class="text-lg font-bold text-neutral-100">%</span>
             <template x-if="editing">
@@ -502,8 +508,6 @@
           progressPercentage,
           100
         )}`;
-
-        
       });
   }
 

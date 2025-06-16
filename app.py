@@ -4,7 +4,8 @@ from azure.identity import AzureCliCredential, ManagedIdentityCredential
 from azure.storage.blob import BlobServiceClient
 
 import logging
-from flask import Flask, render_template, jsonify, request
+import json
+from flask import Flask, render_template, jsonify, request, send_file
 from dotenv import load_dotenv
 from datetime import datetime
 from models import (
@@ -207,6 +208,148 @@ def load_employees(bu_filter: list | None = None):
     except Exception as e:
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
+
+
+
+@app.route('/api/download-roster-analysis', methods=['POST'])
+def download_roster_analysis():
+    import io
+    from datetime import datetime
+    
+    # Get audit log and filters from POST data
+    audit_log_data = request.form.get('audit_log', '[]')
+    filters_data = request.form.get('filters', '{}')
+    
+    try:
+        audit_log = json.loads(audit_log_data)
+        filters = json.loads(filters_data)
+    except:
+        audit_log = []
+        filters = {}
+    
+    # Get current roster data with filters applied
+    user_bus = get_user_bus()
+    _, df, _ = load_employees(user_bus)
+    
+    if df.empty:
+        # Create empty file if no data
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            pd.DataFrame([{'Message': 'No data available'}]).to_excel(writer, sheet_name='Info', index=False)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name='roster-analysis-empty.xlsx',
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Apply filters to the data
+    filtered_df = apply_filters_to_dataframe(df, filters)
+    
+    # Apply audit log to get current state
+    roster_data = apply_audit_log_to_dataframe(filtered_df, audit_log)
+    
+    # Create Excel file
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Sheet 1: Current Allocations - use actual column names
+        allocations_df = roster_data[['EmployeeName', 'Band', 'FinalBU', 'PrismCustomerGroup', 
+                                    'Offshore_Onsite', 'BillableYN']].copy()
+        
+        # Add FTE column (might be missing)
+        if 'FTE' not in roster_data.columns:
+            allocations_df['FTE'] = roster_data.get('AllocationFTECapped_QTR', 0)
+        else:
+            allocations_df['FTE'] = roster_data['FTE']
+            
+        allocations_df.columns = ['Employee Name', 'Band', 'Business Unit', 'Customer', 
+                                'Location', 'Billable', 'Current FTE']
+        allocations_df.to_excel(writer, sheet_name='Current Allocations', index=False)
+        
+        # Sheet 2: Changes Log (only if there are changes)
+        if audit_log:
+            changes_data = []
+            for entry in audit_log:
+                changes_data.append({
+                    'Timestamp': entry.get('timestamp', ''),
+                    'Action': entry.get('action', ''),
+                    'Employee Name': entry.get('employeeName', ''),
+                    'Old Value': entry.get('oldValue', ''),
+                    'New Value': entry.get('newValue', ''),
+                    'Description': entry.get('description', ''),
+                    'GM Impact': entry.get('gmImpact', {}).get('costImpact', 0) if entry.get('gmImpact') else 0
+                })
+            changes_df = pd.DataFrame(changes_data)
+            changes_df.to_excel(writer, sheet_name='Changes Log', index=False)
+        else:
+            # Create empty changes sheet
+            pd.DataFrame([{'Message': 'No changes recorded'}]).to_excel(writer, sheet_name='Changes Log', index=False)
+    
+    output.seek(0)
+    timestamp = datetime.now().strftime('%Y-%m-%d')
+    
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f'roster-analysis-{timestamp}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+def apply_filters_to_dataframe(df, filters):
+    """Apply frontend filters to the dataframe"""
+    filtered_df = df.copy()
+    
+    # Apply month filter
+    month = filters.get('month', 'Quarter')
+    if month != 'Quarter':
+        # Set FTE column based on selected month
+        month_col = f'AllocationFTECapped_{month}'
+        if month_col in filtered_df.columns:
+            filtered_df['FTE'] = filtered_df[month_col]
+        else:
+            filtered_df['FTE'] = filtered_df.get('AllocationFTECapped_QTR', 0)
+    else:
+        filtered_df['FTE'] = filtered_df.get('AllocationFTECapped_QTR', 0)
+    
+    # Apply business unit filter
+    selected_bus = filters.get('selectedBusinessUnits', [])
+    if selected_bus:
+        filtered_df = filtered_df[filtered_df['FinalBU'].isin(selected_bus)]
+    
+    # Apply customer filter
+    selected_customers = filters.get('selectedCustomers', [])
+    if selected_customers:
+        filtered_df = filtered_df[filtered_df['PrismCustomerGroup'].isin(selected_customers)]
+    
+    # Apply location filter
+    selected_locations = filters.get('selectedLocations', [])
+    if selected_locations:
+        filtered_df = filtered_df[filtered_df['Offshore_Onsite'].isin(selected_locations)]
+    
+    # Apply billable status filter
+    selected_billable = filters.get('selectedBillableStatus', [])
+    if selected_billable:
+        # Convert boolean to Y/N for comparison
+        if 'Y' in selected_billable and 'N' not in selected_billable:
+            filtered_df = filtered_df[filtered_df['BillableYN'] == True]
+        elif 'N' in selected_billable and 'Y' not in selected_billable:
+            filtered_df = filtered_df[filtered_df['BillableYN'] == False]
+        # If both Y and N are selected, don't filter
+    
+    return filtered_df.reset_index(drop=True)
+
+def apply_audit_log_to_dataframe(df, audit_log):
+    # Convert to list of dicts for easier manipulation
+    result = df.to_dict('records')
+    
+    for entry in audit_log:
+        if entry['action'] == 'EDIT_FTE':
+            for row in result:
+                if row['id'] == entry['employeeId']:
+                    row['FTE'] = float(entry['newValue'])
+        elif entry['action'] == 'REMOVE_EMPLOYEE':
+            result = [row for row in result if row['id'] != entry['employeeId']]
+        elif entry['action'] == 'ADD_EMPLOYEE' and 'employeeData' in entry:
+            result.append(entry['employeeData'])
+    
+    return pd.DataFrame(result)
 
 @app.route('/')
 def home():
