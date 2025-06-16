@@ -172,6 +172,27 @@
           selectedBillableStatus: filters.selectedBillableStatus,
         };
 
+        const gmSummaryData = {
+          additionalRevenue: window.userEnteredAdditionalRevenue || 0,
+          odcPercentage: window.userEnteredODC || 0,
+          originalODC: window.originalODC || 0, 
+          timestamp: new Date().toISOString(),
+          // Add current filter context
+          selectedCustomer:
+            filters.selectedCustomers.length === 1
+              ? filters.selectedCustomers[0]
+              : "Multiple/All",
+          selectedBU:
+            filters.selectedBusinessUnits.length === 1
+              ? filters.selectedBusinessUnits[0]
+              : "Multiple/All",
+          selectedMonth: filters.month || "Quarter",
+        };
+        const gmSummaryInput = document.createElement("input");
+        gmSummaryInput.type = "hidden";
+        gmSummaryInput.name = "gm_summary";
+        gmSummaryInput.value = JSON.stringify(gmSummaryData);
+
         // Create a form and submit it as POST
         const form = document.createElement("form");
         form.method = "POST";
@@ -190,6 +211,8 @@
 
         form.appendChild(auditInput);
         form.appendChild(filterInput);
+        form.appendChild(gmSummaryInput);
+
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);

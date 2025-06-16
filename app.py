@@ -22,6 +22,9 @@ app = Flask(__name__)
 _cached_rac_data = None
 _cache_timestamp = None
 
+_cached_prism_data = None
+_prism_cache_timestamp = None
+
 def get_credential():
     '''Get the credential based on the environment'''
     # Check if running in Azure (presence of IDENTITY_ENDPOINT environment variable)
@@ -29,6 +32,37 @@ def get_credential():
         return ManagedIdentityCredential()
     else:
         return AzureCliCredential()
+
+def get_cached_prism_data():
+    global _cached_prism_data, _prism_cache_timestamp
+
+    current_time = datetime.now()
+    if (_cached_prism_data is None or _prism_cache_timestamp is None or 
+        (current_time - _prism_cache_timestamp).seconds > 3600):
+        _cached_prism_data = load_prism_data()
+        _prism_cache_timestamp = current_time
+
+    return _cached_prism_data
+
+def load_prism_data():
+    """Load prism data from Azure storage"""
+    try:
+        account_url = "https://sonataonefpa.blob.core.windows.net/"
+        container_name = "testpoccontainer"
+        credential = get_credential()
+        blob_service_client = BlobServiceClient(account_url, credential=credential)
+        container_client = blob_service_client.get_container_client(container_name)
+        
+        # Download prism.csv
+        prism_blob_client = container_client.get_blob_client("prism.csv")
+        prism_download_stream = prism_blob_client.download_blob()
+        prism_content = io.BytesIO(prism_download_stream.readall())
+        prism_df = pd.read_csv(prism_content, low_memory=False)
+        
+        return prism_df
+    except Exception as e:
+        app.logger.error(f"Error loading prism data: {e}")
+        return pd.DataFrame()
 
 def get_cached_data():
     global _cached_rac_data, _cache_timestamp
@@ -209,16 +243,19 @@ def download_roster_analysis():
     import io
     from datetime import datetime
     
-    # Get audit log and filters from POST data
+    # Get audit log, filters, and GM summary from POST data
     audit_log_data = request.form.get('audit_log', '[]')
     filters_data = request.form.get('filters', '{}')
+    gm_summary_data = request.form.get('gm_summary', '{}')
     
     try:
         audit_log = json.loads(audit_log_data)
         filters = json.loads(filters_data)
+        gm_summary = json.loads(gm_summary_data)
     except:
         audit_log = []
         filters = {}
+        gm_summary = {}
     
     # Get current roster data with filters applied
     user_bus = get_user_bus()
@@ -239,14 +276,29 @@ def download_roster_analysis():
     # Apply audit log to get current state
     roster_data = apply_audit_log_to_dataframe(filtered_df, audit_log)
     
+    try:
+        prism_df = get_cached_prism_data()
+        
+        if not prism_df.empty:
+            # Filter revenue data same way as in get_gm_details()
+            quarter_formatted = 'Q1'  # Extract from max_quarter if needed
+            filtered_revenue = prism_df[prism_df['Quarter'] == quarter_formatted].reset_index(drop=True)
+            filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
+            
+        else:
+            filtered_revenue = pd.DataFrame()
+            
+    except Exception as e:
+        print(f"Error loading revenue data: {e}")
+        filtered_revenue = pd.DataFrame()
+    
     # Create Excel file
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Sheet 1: Current Allocations - use actual column names
+        # Sheet 1: Current Allocations
         allocations_df = roster_data[['EmployeeName', 'Band', 'FinalBU', 'PrismCustomerGroup', 
                                     'Offshore_Onsite', 'BillableYN']].copy()
         
-        # Add FTE column (might be missing)
         if 'FTE' not in roster_data.columns:
             allocations_df['FTE'] = roster_data.get('AllocationFTECapped_QTR', 0)
         else:
@@ -256,7 +308,7 @@ def download_roster_analysis():
                                 'Location', 'Billable', 'Current FTE']
         allocations_df.to_excel(writer, sheet_name='Current Allocations', index=False)
         
-        # Sheet 2: Changes Log (only if there are changes)
+        # Sheet 2: Changes Log
         if audit_log:
             changes_data = []
             for entry in audit_log:
@@ -272,8 +324,98 @@ def download_roster_analysis():
             changes_df = pd.DataFrame(changes_data)
             changes_df.to_excel(writer, sheet_name='Changes Log', index=False)
         else:
-            # Create empty changes sheet
             pd.DataFrame([{'Message': 'No changes recorded'}]).to_excel(writer, sheet_name='Changes Log', index=False)
+        
+        # Sheet 3: Revenue Summary
+        summary_data = []
+
+        # Get filter context from GM summary for better labeling
+        selected_customer = gm_summary.get('selectedCustomer', 'All')
+        selected_month = gm_summary.get('selectedMonth', 'Quarter')
+
+        total_base_revenue = 0
+        if not filtered_revenue.empty:
+            temp_revenue = filtered_revenue.copy()
+            if filters.get('selectedCustomers'):
+                temp_revenue = temp_revenue[temp_revenue['Customer'].isin(filters['selectedCustomers'])]
+            
+            if selected_month == 'Quarter':
+                total_base_revenue = temp_revenue['Total_Revenue'].sum() * 1000000
+            else:
+                if selected_month in ['M1', 'M2', 'M3']:
+                    month_filtered = temp_revenue[temp_revenue['Month'].str.contains(selected_month, na=False)]
+                    total_base_revenue = month_filtered['Total_Revenue'].sum() * 1000000
+
+        additional_revenue_value = 0
+        try:
+            additional_revenue_value = float(gm_summary.get('additionalRevenue', 0)) if gm_summary.get('additionalRevenue') else 0
+        except (ValueError, TypeError):
+            additional_revenue_value = 0
+
+        total_revenue = total_base_revenue + additional_revenue_value
+
+        original_odc = 0
+        current_odc = 0
+        try:
+            original_odc = float(gm_summary.get('originalODC', 0)) if gm_summary.get('originalODC') else 0
+            current_odc = float(gm_summary.get('odcPercentage', 0)) if gm_summary.get('odcPercentage') else original_odc
+        except (ValueError, TypeError):
+            original_odc = 0
+            current_odc = 0
+
+        if total_base_revenue > 0:
+            summary_data.append({
+                'Type': 'Base Revenue',
+                'Customer': selected_customer,
+                'Month': selected_month,
+                'Amount': total_base_revenue,
+                'GM Impact': 0,
+                'Source': 'System Data'
+            })
+
+        if additional_revenue_value > 0:
+            addl_revenue_gm_impact = (additional_revenue_value / total_revenue) if total_revenue > 0 else 0
+            print(addl_revenue_gm_impact)
+            summary_data.append({
+                'Type': 'Additional Revenue',
+                'Customer': selected_customer,
+                'Month': selected_month,
+                'Amount': additional_revenue_value,
+                'GM Impact': addl_revenue_gm_impact,
+                'Source': 'Manual Entry'
+            })
+
+    
+        if original_odc > 0:
+            original_odc_amount = original_odc / 100  * total_revenue if total_revenue > 0 else 0
+            print(original_odc)
+            summary_data.append({
+                'Type': 'ODC',
+                'Customer': selected_customer,
+                'Month': selected_month,
+                'Amount': original_odc_amount,
+                'GM Impact': 0,
+                'Source': f'System Data ({original_odc:.1f}%)'
+            })
+
+        if abs(current_odc - original_odc) > 0.01:  # Only show if there's a meaningful change
+            odc_gm_impact = original_odc - current_odc  # Positive means GM improvement
+            odc_amount_impact = odc_gm_impact / 100 * total_revenue if total_revenue > 0 else 0
+            print(odc_gm_impact)
+            summary_data.append({
+                'Type': 'ODC Change',
+                'Customer': selected_customer,
+                'Month': selected_month,
+                'Amount': odc_amount_impact,
+                'GM Impact': odc_gm_impact / 100,
+                'Source': f'Manual Entry ({original_odc:.1f}% → {current_odc:.1f}%)'
+            })
+
+        if summary_data:
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+        else:
+            pd.DataFrame([{'Message': 'No summary data available'}]).to_excel(writer, sheet_name='Summary', index=False)
     
     output.seek(0)
     timestamp = datetime.now().strftime('%Y-%m-%d')
@@ -367,11 +509,7 @@ def get_gm_details():
     blob_service_client = BlobServiceClient(account_url, credential=credential)
     container_client = blob_service_client.get_container_client(container_name)
 
-    # Download prism.csv
-    prism_blob_client = container_client.get_blob_client("prism.csv")
-    prism_download_stream = prism_blob_client.download_blob()
-    prism_content = io.BytesIO(prism_download_stream.readall())
-    revenue = pd.read_csv(prism_content, low_memory=False)
+    revenue = get_cached_prism_data()
 
     # Download plan.csv
     plan_blob_client = container_client.get_blob_client("plan.csv")

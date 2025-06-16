@@ -198,16 +198,26 @@
 </div>
 
 <script>
-  let userEnteredODC = 0;
-  let userEnteredAdditionalRevenue = 0;
+  // Make these variables accessible to other components
+  if (typeof window.userEnteredODC === "undefined") {
+    window.userEnteredODC = 0;
+  }
+  if (typeof window.userEnteredAdditionalRevenue === "undefined") {
+    window.userEnteredAdditionalRevenue = 0;
+  }
+
+  let userEnteredODC = window.userEnteredODC;
+  let userEnteredAdditionalRevenue = window.userEnteredAdditionalRevenue;
 
   window.addEventListener("odc-changed", function (e) {
-    userEnteredODC = e.detail.value;
+    window.userEnteredODC = e.detail.value;
+    userEnteredODC = e.detail.value; // Keep local copy
     updateFilteredGMData();
   });
 
   window.addEventListener("additional-revenue-changed", function (e) {
-    userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0;
+    window.userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0;
+    userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0; // Keep local copy
     updateFilteredGMData();
   });
 
@@ -314,6 +324,7 @@
 
   async function updateFilteredGMData(gmImpactFromAuditLog = null) {
     const filters = Alpine.store("filters");
+
     if (!filters || !gmDetailsData.length) return;
 
     let filteredData = gmDetailsData.filter((item) => {
@@ -406,6 +417,9 @@
     // Set ODC input value after odc is calculated
 
     const startingODCPerc = (odc / totalRevenue) * 100;
+    if (typeof window.originalODC === "undefined" || window.originalODC === 0) {
+      window.originalODC = isNaN(startingODCPerc) ? 0 : startingODCPerc;
+    }
 
     if (userEnteredODC) {
       odcPerc = userEnteredODC;
