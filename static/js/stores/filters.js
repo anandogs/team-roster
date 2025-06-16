@@ -26,7 +26,7 @@ document.addEventListener("alpine:init", () => {
     // Helper method to clear audit log and refresh
     clearAuditLogAndRefresh() {
       localStorage.removeItem("roster-audit-log");
-      
+
       // Show brief success message
       window.dispatchEvent(
         new CustomEvent("show-toast", {
@@ -44,33 +44,38 @@ document.addEventListener("alpine:init", () => {
       }, 2000);
     },
     // Add this getter to the filters store
-get canMakeChanges() {
-  return this.selectedCustomers.length === 1;
-},
+    get canMakeChanges() {
+      return this.selectedCustomers.length === 1;
+    },
 
-get customerSelectionMessage() {
-  if (this.selectedCustomers.length === 0) {
-    return "No customer selected. Please select one customer to continue.";
-  } else if (this.selectedCustomers.length > 1) {
-    return `${this.selectedCustomers.length} customers selected. Please select only one customer to make changes.`;
-  }
-  return "";
-},
+    get customerSelectionMessage() {
+      if (this.selectedCustomers.length === 0) {
+        return "No customer selected. Please select one customer to continue.";
+      } else if (this.selectedCustomers.length > 1) {
+        return `${this.selectedCustomers.length} customers selected. Please select only one customer to make changes.`;
+      }
+      return "";
+    },
 
     // Enhanced filter update method with confirmation
     async updateFiltersWithConfirmation(filterType = "general") {
       // Check if there are audit log entries
       if (this.hasAuditLogEntries()) {
-        const filterTypeText = filterType === "month" ? "time period" : 
-                              filterType === "businessUnit" ? "business unit" : 
-                              filterType === "customer" ? "customer selection" : "filters";
-        
+        const filterTypeText =
+          filterType === "month"
+            ? "time period"
+            : filterType === "businessUnit"
+            ? "business unit"
+            : filterType === "customer"
+            ? "customer selection"
+            : "filters";
+
         const confirmed = confirm(
           `Changing the ${filterTypeText} will reset all roster changes you've made. ` +
-          `This will clear your audit log and refresh the page.\n\n` +
-          `Do you want to continue?`
+            `This will clear your audit log and refresh the page.\n\n` +
+            `Do you want to continue?`
         );
-        
+
         if (!confirmed) {
           // Revert the filter change by restoring previous state
           this.revertFilterChange(filterType);
@@ -81,7 +86,7 @@ get customerSelectionMessage() {
           return true;
         }
       }
-      
+
       // No audit log entries, proceed with normal filter update
       this.updateFilters();
       return true;
@@ -112,8 +117,10 @@ get customerSelectionMessage() {
     updateMonthDisplay() {
       const displayElement = document.getElementById("month-display");
       if (displayElement) {
-        const displayText = this.month === "Quarter" ? "Quarter" : 
-                           this.periodData[this.month] || this.month;
+        const displayText =
+          this.month === "Quarter"
+            ? "Quarter"
+            : this.periodData[this.month] || this.month;
         displayElement.textContent = displayText;
       }
     },
@@ -145,7 +152,8 @@ get customerSelectionMessage() {
       });
       this.customers = uniqueCustomers;
 
-      this.selectedCustomers = [...this.customers.map(c => c.PrismCustomerGroup)];
+      this.selectedCustomers =
+        this.customers.length > 0 ? [this.customers[0].PrismCustomerGroup] : [];
       this.selectedLocations = [...this.availableLocations];
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
@@ -166,34 +174,34 @@ get customerSelectionMessage() {
     },
 
     retryLocationAndBillablePopulation() {
-    let attempts = 0;
-    const maxAttempts = 50; // 50 attempts over 10 seconds
-    
-    const tryPopulate = () => {
+      let attempts = 0;
+      const maxAttempts = 50; // 50 attempts over 10 seconds
+
+      const tryPopulate = () => {
         attempts++;
-        
+
         const locationOptions = document.getElementById("location-options");
         const billableOptions = document.getElementById("billable-options");
-        
+
         if (locationOptions) {
-            this.updateLocationOptions();
+          this.updateLocationOptions();
         }
         if (billableOptions) {
-            this.updateBillableOptions();
+          this.updateBillableOptions();
         }
-        
+
         // If both found or max attempts reached, stop trying
         if ((locationOptions && billableOptions) || attempts >= maxAttempts) {
-            console.log(`Filter population completed after ${attempts} attempts`);
-            return;
+          console.log(`Filter population completed after ${attempts} attempts`);
+          return;
         }
-        
+
         // Try again in 200ms
         setTimeout(tryPopulate, 200);
-    };
-    
-    setTimeout(tryPopulate, 1000); // Start after 1 second
-},
+      };
+
+      setTimeout(tryPopulate, 1000); // Start after 1 second
+    },
 
     // UI Population Methods
     populateOptions() {
@@ -276,7 +284,7 @@ get customerSelectionMessage() {
     async toggleBusinessUnitWithConfirmation(bu, isChecked) {
       // Store previous state
       const previousState = [...this.selectedBusinessUnits];
-      
+
       // Apply the change temporarily
       if (isChecked) {
         if (!this.selectedBusinessUnits.includes(bu)) {
@@ -289,8 +297,10 @@ get customerSelectionMessage() {
       }
 
       // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
-      
+      const confirmed = await this.updateFiltersWithConfirmation(
+        "businessUnit"
+      );
+
       if (!confirmed) {
         // Revert the change
         this.selectedBusinessUnits = previousState;
@@ -298,8 +308,27 @@ get customerSelectionMessage() {
       } else {
         // Update UI elements
         this.updateBusinessUnitDisplay();
+        this.updateCustomerOptions();
+        const filteredCustomers = this.getFilteredCustomers();
+        if (filteredCustomers.length > 0) {
+          this.selectedCustomers = [filteredCustomers[0].PrismCustomerGroup];
+        } else {
+          this.selectedCustomers = [];
+        }
+        this.updateCustomerDisplay(); 
         this.updateSelectAllBusinessUnitState();
       }
+    },
+    getFilteredCustomers() {
+      if (
+        this.selectedBusinessUnits.length > 0 &&
+        this.selectedBusinessUnits.length < this.businessUnits.length
+      ) {
+        return this.customers.filter((customerObj) =>
+          this.selectedBusinessUnits.includes(customerObj.FinalBU)
+        );
+      }
+      return this.customers;
     },
 
     toggleBusinessUnit(bu, isChecked) {
@@ -321,7 +350,7 @@ get customerSelectionMessage() {
     async toggleAllBusinessUnitsWithConfirmation(selectAll) {
       // Store previous state
       const previousState = [...this.selectedBusinessUnits];
-      
+
       // Apply the change temporarily
       if (selectAll) {
         this.selectedBusinessUnits = [...this.businessUnits];
@@ -330,8 +359,10 @@ get customerSelectionMessage() {
       }
 
       // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation("businessUnit");
-      
+      const confirmed = await this.updateFiltersWithConfirmation(
+        "businessUnit"
+      );
+
       if (!confirmed) {
         // Revert the change
         this.selectedBusinessUnits = previousState;
@@ -417,24 +448,30 @@ get customerSelectionMessage() {
     updateCustomerOptions() {
       const customerOptions = document.getElementById("customer-options");
       if (customerOptions) {
-        customerOptions.innerHTML = this.customers
+        // Filter customers based on selected business units
+        const filteredCustomers = this.getFilteredCustomers();
+
+        customerOptions.innerHTML = filteredCustomers
           .map(
             (customerObj) => `
-<label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
-    <input
-        type="checkbox"
-        value="${customerObj.PrismCustomerGroup}"
-        class="customer-checkbox mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-        onchange="toggleCustomerWithConfirmation('${customerObj.PrismCustomerGroup}', this.checked)"
-        ${
-          this.selectedCustomers.includes(customerObj.PrismCustomerGroup)
-            ? "checked"
-            : ""
-        }
-    >
-    <span class="truncate">${customerObj.PrismCustomerGroup}</span>
-</label>
-        `
+        <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
+          <input
+            type="radio"
+            name="customer-selection"
+            value="${customerObj.PrismCustomerGroup}"
+            class="mr-3 h-4 w-4 border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+            onchange="selectCustomerWithConfirmation('${
+              customerObj.PrismCustomerGroup
+            }')"
+            ${
+              this.selectedCustomers.includes(customerObj.PrismCustomerGroup)
+                ? "checked"
+                : ""
+            }
+          >
+          <span class="truncate">${customerObj.PrismCustomerGroup}</span>
+        </label>
+      `
           )
           .join("");
 
@@ -442,32 +479,17 @@ get customerSelectionMessage() {
       }
     },
 
-    async toggleCustomerWithConfirmation(customer, isChecked) {
-      // Store previous state
-      const previousState = [...this.selectedCustomers];
-      
-      // Apply the change temporarily
-      if (isChecked) {
-        if (!this.selectedCustomers.includes(customer)) {
-          this.selectedCustomers.push(customer);
-        }
-      } else {
-        this.selectedCustomers = this.selectedCustomers.filter(
-          (c) => c !== customer
-        );
-      }
+    async selectCustomerWithConfirmation(customer) {
+      const previousCustomer = this.selectedCustomers[0] || null;
+      this.selectedCustomers = [customer];
 
-      // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation("customer");
-      
+
       if (!confirmed) {
-        // Revert the change
-        this.selectedCustomers = previousState;
-        // The checkbox state will be reverted by revertFilterChange
+        this.selectedCustomers = previousCustomer ? [previousCustomer] : [];
+        this.updateCustomerOptions(); // Re-render radio buttons
       } else {
-        // Update UI elements
         this.updateCustomerDisplay();
-        this.updateSelectAllState();
       }
     },
 
@@ -483,103 +505,18 @@ get customerSelectionMessage() {
       }
 
       this.updateCustomerDisplay();
-      this.updateSelectAllState();
       this.updateFilters();
-    },
-
-    async toggleAllCustomersWithConfirmation(selectAll) {
-      // Store previous state
-      const previousState = [...this.selectedCustomers];
-      
-      // Apply the change temporarily
-      if (selectAll) {
-        this.selectedCustomers = [
-          ...this.customers.map((c) => c.PrismCustomerGroup),
-        ];
-      } else {
-        this.selectedCustomers = [];
-      }
-
-      // Check for confirmation if needed
-      const confirmed = await this.updateFiltersWithConfirmation("customer");
-      
-      if (!confirmed) {
-        // Revert the change
-        this.selectedCustomers = previousState;
-        // The UI will be reverted by revertFilterChange
-      } else {
-        // Update checkboxes
-        document.querySelectorAll(".customer-checkbox").forEach((checkbox) => {
-          checkbox.checked = selectAll;
-        });
-        this.updateCustomerDisplay();
-      }
-    },
-
-    toggleAllCustomers(selectAll) {
-      if (selectAll) {
-        this.selectedCustomers = [
-          ...this.customers.map((c) => c.PrismCustomerGroup),
-        ];
-      } else {
-        this.selectedCustomers = [];
-      }
-
-      document.querySelectorAll(".customer-checkbox").forEach((checkbox) => {
-        checkbox.checked = selectAll;
-      });
-
-      this.updateCustomerDisplay();
-      this.updateFilters();
-    },
-
-    updateSelectAllState() {
-      const selectAllCheckbox = document.getElementById("select-all-customers");
-      if (!selectAllCheckbox) return;
-
-      const allSelected =
-        this.selectedCustomers.length === this.customers.length;
-      const noneSelected = this.selectedCustomers.length === 0;
-
-      selectAllCheckbox.checked = allSelected;
-      selectAllCheckbox.indeterminate = !allSelected && !noneSelected;
     },
 
     updateCustomerDisplay() {
       const displayElement = document.getElementById("customer-display");
-      const clearButton = document.getElementById("clear-customer");
-
       if (!displayElement) return;
 
-      const totalCustomers = this.customers.length;
-
       if (this.selectedCustomers.length === 0) {
-        displayElement.textContent = "No Customers";
-        if (clearButton) clearButton.classList.remove("hidden");
-      } else if (this.selectedCustomers.length === totalCustomers) {
-        displayElement.textContent = `All Customers (${totalCustomers})`;
-        if (clearButton) clearButton.classList.add("hidden");
-      } else if (this.selectedCustomers.length === 1) {
-        displayElement.textContent = this.selectedCustomers[0];
-        if (clearButton) clearButton.classList.remove("hidden");
+        displayElement.textContent = "Select Customer";
       } else {
-        displayElement.textContent = `${this.selectedCustomers.length} Customers`;
-        if (clearButton) clearButton.classList.remove("hidden");
+        displayElement.textContent = this.selectedCustomers[0];
       }
-    },
-
-    clearAllCustomers() {
-      this.selectedCustomers = [];
-
-      document.querySelectorAll(".customer-checkbox").forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-
-      const selectAllCheckbox = document.getElementById("select-all-customers");
-      if (selectAllCheckbox) selectAllCheckbox.checked = false;
-
-      this.updateCustomerDisplay();
-      this.updateFilters();
     },
 
     // Location Methods (No confirmation needed as these don't reset data)
@@ -815,7 +752,7 @@ get customerSelectionMessage() {
     async selectMonth(monthKey, monthDisplay = null) {
       // Store previous state
       const previousMonth = this.month;
-      
+
       // Apply the change temporarily
       this.month = monthKey;
       const displayText = monthDisplay || monthKey;
@@ -826,7 +763,7 @@ get customerSelectionMessage() {
 
       // Check for confirmation if needed
       const confirmed = await this.updateFiltersWithConfirmation("month");
-      
+
       if (!confirmed) {
         // Revert the change
         this.month = previousMonth;
@@ -853,7 +790,6 @@ get customerSelectionMessage() {
       if (displayElement) displayElement.textContent = "BU";
       if (clearButton) clearButton.classList.add("hidden");
 
-      this.clearAllCustomers();
       this.updateFilters();
     },
 
@@ -893,10 +829,6 @@ function toggleAllBusinessUnitsWithConfirmation(selectAll) {
   Alpine.store("filters").toggleAllBusinessUnitsWithConfirmation(selectAll);
 }
 
-function toggleCustomerWithConfirmation(customer, isChecked) {
-  Alpine.store("filters").toggleCustomerWithConfirmation(customer, isChecked);
-}
-
-function toggleAllCustomersWithConfirmation(selectAll) {
-  Alpine.store("filters").toggleAllCustomersWithConfirmation(selectAll);
+function selectCustomerWithConfirmation(customer) {
+  Alpine.store("filters").selectCustomerWithConfirmation(customer);
 }

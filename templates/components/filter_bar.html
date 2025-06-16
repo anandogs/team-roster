@@ -1,5 +1,7 @@
 <div class="border-b border-neutral-800 bg-neutral-900 px-6 py-3">
-  <div class="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0">
+  <div
+    class="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0"
+  >
     <div class="flex items-center space-x-2">
       <div class="rounded-md bg-neutral-800 px-3 py-1.5">
         <span class="text-sm font-medium text-neutral-300">Quarter:</span>
@@ -9,20 +11,34 @@
 
     <div class="flex flex-wrap gap-2">
       <div class="flex items-center">
-        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+        <div
+          class="relative"
+          x-data="{ open: false }"
+          @click.away="open = false"
+        >
           <button
             class="w-[130px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700 whitespace-nowrap"
             @click="open = !open"
           >
             <span id="month-display" class="truncate">Quarter</span>
-            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg
+              class="ml-2 h-4 w-4 shrink-0 opacity-50"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M7 15l5 5 5-5M7 9l5-5 5 5"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
           <div
             x-show="open"
             x-cloak
-            style="display: none;"
+            style="display: none"
             class="absolute z-10 mt-1 w-[130px] rounded-md border border-neutral-700 bg-neutral-800 p-1"
           >
             <div class="max-h-60 overflow-auto">
@@ -32,8 +48,18 @@
                   @click="open = false"
                   onclick="selectMonth('Quarter')"
                 >
-                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg
+                    class="mr-2 h-4 w-4 opacity-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      d="M20 6L9 17l-5-5"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                   Quarter
                 </button>
@@ -42,8 +68,18 @@
                   @click="open = false"
                   onclick="selectMonth('M1')"
                 >
-                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg
+                    class="mr-2 h-4 w-4 opacity-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      d="M20 6L9 17l-5-5"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                   M1
                 </button>
@@ -52,8 +88,18 @@
                   @click="open = false"
                   onclick="selectMonth('M2')"
                 >
-                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg
+                    class="mr-2 h-4 w-4 opacity-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      d="M20 6L9 17l-5-5"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                   M2
                 </button>
@@ -62,8 +108,18 @@
                   @click="open = false"
                   onclick="selectMonth('M3')"
                 >
-                  <svg class="mr-2 h-4 w-4 opacity-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <svg
+                    class="mr-2 h-4 w-4 opacity-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      d="M20 6L9 17l-5-5"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                   M3
                 </button>
@@ -75,37 +131,55 @@
 
       <!-- Business Unit Selector -->
       <div class="flex items-center">
-        <div class="relative" x-data="{ open: false }" @click.away="open = false">
+        <div
+          class="relative"
+          x-data="{ open: false }"
+          @click.away="open = false"
+        >
           <button
             class="w-[200px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700"
             @click="open = !open"
           >
-            <span id="bu-display" class="truncate text-left">All Business Units</span>
-            <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <span id="bu-display" class="truncate text-left"
+              >All Business Units</span
+            >
+            <svg
+              class="ml-2 h-4 w-4 shrink-0 opacity-50"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M7 15l5 5 5-5M7 9l5-5 5 5"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
           <div
             x-show="open"
             x-cloak
-            style="display: none;"
+            style="display: none"
             class="absolute z-10 mt-1 w-[200px] rounded-md border border-neutral-700 bg-neutral-800 p-2"
           >
             <div class="max-h-60 overflow-auto">
               <!-- Select All Option -->
               <div class="border-b border-neutral-600 pb-2 mb-2">
-                <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
+                <label
+                  class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     id="select-all-business-units"
                     class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
                     onchange="toggleAllBusinessUnitsWithConfirmation(this.checked)"
                     checked
-                  >
+                  />
                   <span class="font-medium">Select All</span>
                 </label>
               </div>
-              
+
               <div class="space-y-1" id="bu-options">
                 <!-- Populated by JavaScript -->
               </div>
@@ -115,117 +189,118 @@
       </div>
 
       <!-- Customer Selector -->
-<div class="flex items-center">
-  <div class="relative" x-data="{ open: false }" @click.away="open = false">
-    <button
-      id="customer-button"
-      class="w-[200px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700"
-      @click="open = !open"
-    >
-      <span id="customer-display" class="truncate text-left">All Customers</span>
-      <svg class="ml-2 h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-    <div
-      x-show="open"
-      x-cloak
-      style="display: none;"
-      class="absolute z-10 mt-1 w-[200px] rounded-md border border-neutral-700 bg-neutral-800 p-2"
-    >
-      <div class="max-h-60 overflow-auto">
-        <!-- Select All Option -->
-        <div class="border-b border-neutral-600 pb-2 mb-2">
-          <label class="flex items-center px-2 py-1.5 text-sm text-white hover:bg-neutral-700 rounded-sm cursor-pointer">
-            <input
-              type="checkbox"
-              id="select-all-customers"
-              class="mr-3 h-4 w-4 rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500 focus:ring-2"
-              onchange="toggleAllCustomersWithConfirmation(this.checked)"
-              checked
+      <div class="flex items-center">
+        <div
+          class="relative"
+          x-data="{ open: false }"
+          @click.away="open = false"
+        >
+          <button
+            id="customer-button"
+            class="w-[200px] flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-white hover:bg-neutral-700"
+            @click="open = !open"
+          >
+            <span id="customer-display" class="truncate text-left"
+              >All Customers</span
             >
-            <span class="font-medium">Select All</span>
-          </label>
-        </div>
-        
-        <div class="space-y-1" id="customer-options">
+            <svg
+              class="ml-2 h-4 w-4 shrink-0 opacity-50"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M7 15l5 5 5-5M7 9l5-5 5 5"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            style="display: none"
+            class="absolute z-10 mt-1 w-[200px] rounded-md border border-neutral-700 bg-neutral-800 p-2"
+          >
+            <div class="max-h-60 overflow-auto">
+
+              <div class="space-y-1" id="customer-options"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-    </div>
-  </div>
-</div>
-
 <script>
-// Initialize the filter bar
-async function initializeFilterBar() {
-    await Alpine.store('filters').init();
-}
+  // Initialize the filter bar
+  async function initializeFilterBar() {
+    await Alpine.store("filters").init();
+  }
 
-// Enhanced wrapper functions that call Alpine store methods with confirmation
-function selectMonth(monthKey, monthDisplay = null) {
-    Alpine.store('filters').selectMonth(monthKey, monthDisplay);
-}
+  // Enhanced wrapper functions that call Alpine store methods with confirmation
+  function selectMonth(monthKey, monthDisplay = null) {
+    Alpine.store("filters").selectMonth(monthKey, monthDisplay);
+  }
 
-function toggleBusinessUnit(bu, isChecked) {
-    Alpine.store('filters').toggleBusinessUnit(bu, isChecked);
-}
+  function toggleBusinessUnit(bu, isChecked) {
+    Alpine.store("filters").toggleBusinessUnit(bu, isChecked);
+  }
 
-function toggleAllBusinessUnits(selectAll) {
-    Alpine.store('filters').toggleAllBusinessUnits(selectAll);
-}
+  function toggleAllBusinessUnits(selectAll) {
+    Alpine.store("filters").toggleAllBusinessUnits(selectAll);
+  }
 
-// New confirmation wrapper functions
-function toggleBusinessUnitWithConfirmation(bu, isChecked) {
-    Alpine.store('filters').toggleBusinessUnitWithConfirmation(bu, isChecked);
-}
+  // New confirmation wrapper functions
+  function toggleBusinessUnitWithConfirmation(bu, isChecked) {
+    Alpine.store("filters").toggleBusinessUnitWithConfirmation(bu, isChecked);
+  }
 
-function toggleAllBusinessUnitsWithConfirmation(selectAll) {
-    Alpine.store('filters').toggleAllBusinessUnitsWithConfirmation(selectAll);
-}
+  function toggleAllBusinessUnitsWithConfirmation(selectAll) {
+    Alpine.store("filters").toggleAllBusinessUnitsWithConfirmation(selectAll);
+  }
 
-function toggleCustomerWithConfirmation(customer, isChecked) {
-    Alpine.store('filters').toggleCustomerWithConfirmation(customer, isChecked);
-}
+  function toggleCustomerWithConfirmation(customer, isChecked) {
+    Alpine.store("filters").toggleCustomerWithConfirmation(customer, isChecked);
+  }
 
-function toggleAllCustomersWithConfirmation(selectAll) {
-    Alpine.store('filters').toggleAllCustomersWithConfirmation(selectAll);
-}
+  function toggleAllCustomersWithConfirmation(selectAll) {
+    Alpine.store("filters").toggleAllCustomersWithConfirmation(selectAll);
+  }
 
-function selectLocation(location) {
-    Alpine.store('filters').selectLocation(location);
-}
+  function selectLocation(location) {
+    Alpine.store("filters").selectLocation(location);
+  }
 
-function selectBillableStatus(status) {
-    Alpine.store('filters').selectBillableStatus(status);
-}
+  function selectBillableStatus(status) {
+    Alpine.store("filters").selectBillableStatus(status);
+  }
 
-function toggleCustomer(customer, isChecked) {
-    Alpine.store('filters').toggleCustomer(customer, isChecked);
-}
+  function toggleCustomer(customer, isChecked) {
+    Alpine.store("filters").toggleCustomer(customer, isChecked);
+  }
 
-function toggleAllCustomers(selectAll) {
-    Alpine.store('filters').toggleAllCustomers(selectAll);
-}
+  function toggleAllCustomers(selectAll) {
+    Alpine.store("filters").toggleAllCustomers(selectAll);
+  }
 
-function toggleBillableStatus(statusValue, isChecked) {
-    Alpine.store('filters').toggleBillableStatus(statusValue, isChecked);
-}
+  function toggleBillableStatus(statusValue, isChecked) {
+    Alpine.store("filters").toggleBillableStatus(statusValue, isChecked);
+  }
 
-function toggleAllBillableStatus(selectAll) {
-    Alpine.store('filters').toggleAllBillableStatus(selectAll);
-}
+  function toggleAllBillableStatus(selectAll) {
+    Alpine.store("filters").toggleAllBillableStatus(selectAll);
+  }
 
-function toggleLocation(location, isChecked) {
-    Alpine.store('filters').toggleLocation(location, isChecked);
-}
+  function toggleLocation(location, isChecked) {
+    Alpine.store("filters").toggleLocation(location, isChecked);
+  }
 
-function toggleAllLocations(selectAll) {
-    Alpine.store('filters').toggleAllLocations(selectAll);
-}
+  function toggleAllLocations(selectAll) {
+    Alpine.store("filters").toggleAllLocations(selectAll);
+  }
 
-document.addEventListener('DOMContentLoaded', initializeFilterBar);
+  document.addEventListener("DOMContentLoaded", initializeFilterBar);
 </script>
