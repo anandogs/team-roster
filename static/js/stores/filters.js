@@ -510,20 +510,6 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    clearAllLocations() {
-      this.selectedLocations = [];
-
-      document.querySelectorAll(".location-checkbox").forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-
-      const selectAllCheckbox = document.getElementById("select-all-locations");
-      if (selectAllCheckbox) selectAllCheckbox.checked = false;
-
-      this.updateLocationDisplay();
-      this.updateFilters();
-    },
-
     // Billable Status Methods (No confirmation needed as these don't reset data)
     updateBillableOptions() {
       const billableOptions = document.getElementById("billable-options");
@@ -630,20 +616,6 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    clearAllBillableStatus() {
-      this.selectedBillableStatus = [];
-
-      document.querySelectorAll(".billable-checkbox").forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-
-      const selectAllCheckbox = document.getElementById("select-all-billable");
-      if (selectAllCheckbox) selectAllCheckbox.checked = false;
-
-      this.updateBillableDisplay();
-      this.updateFilters();
-    },
-
     // Single select methods (Enhanced for month selection)
     async selectMonth(monthKey, monthDisplay = null) {
       // Store previous state
@@ -667,27 +639,7 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    selectBusinessUnit(bu) {
-      this.businessUnit = bu;
-      const displayElement = document.getElementById("bu-display");
-      const clearButton = document.getElementById("clear-bu");
 
-      if (displayElement) displayElement.textContent = bu;
-      if (clearButton) clearButton.classList.remove("hidden");
-
-      this.updateFilters();
-    },
-
-    clearBusinessUnit() {
-      this.businessUnit = "";
-      const displayElement = document.getElementById("bu-display");
-      const clearButton = document.getElementById("clear-bu");
-
-      if (displayElement) displayElement.textContent = "BU";
-      if (clearButton) clearButton.classList.add("hidden");
-
-      this.updateFilters();
-    },
 
     // API Methods
     updateFilters() {
@@ -716,10 +668,6 @@ document.addEventListener("alpine:init", () => {
   });
 });
 
-// Global wrapper functions for enhanced filter methods
-function toggleBusinessUnitWithConfirmation(bu, isChecked) {
-  Alpine.store("filters").toggleBusinessUnitWithConfirmation(bu, isChecked);
-}
 
 function selectCustomerWithConfirmation(customer) {
   Alpine.store("filters").selectCustomerWithConfirmation(customer);

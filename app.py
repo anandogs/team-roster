@@ -8,11 +8,6 @@ import json
 from flask import Flask, render_template, jsonify, request, send_file
 from dotenv import load_dotenv
 from datetime import datetime
-from models import (
-    FilterState,
-    generate_sample_direct_costs,
-    bu_to_customers, 
-)
 import pandas as pd
 
 load_dotenv()
@@ -98,8 +93,6 @@ def get_user_bus():
     except Exception as e:
         app.logger.error(f"Error getting user BUs for {user_email}: {e}")
         return []  # Return empty list on error = no data shown
-
-direct_costs = generate_sample_direct_costs()
 
 max_quarter = 'Q1FY2026'
 
@@ -688,88 +681,6 @@ def get_period():
     current_quarter = df['Quarter'].unique()[0]
     period_dict = get_quarter_months(current_quarter)
     return period_dict
-
-
-
-@app.route('/api/direct-costs')
-def get_direct_costs():
-    return jsonify([c.model_dump() for c in direct_costs])
-
-def calculate_gm_for_user(user_bus):
-    """Calculate GM based on user's BU access"""
-    try:
-        # Get the data filtered by user's BUs
-        if user_bus is None:
-            # User has 'All' access
-            _, df, _ = load_employees(None)
-        else:
-            # User has specific BU access
-            _, df, _ = load_employees(user_bus)
-        
-        if df.empty:
-            return {"currentGM": 0, "revenue": 0, "directCosts": 0}
-        
-        # Calculate revenue and GM based on the filtered data
-        # You'll need to implement this based on your business logic
-        # For now, using placeholder values
-        filtered_revenue = len(df) * 100  # Placeholder calculation
-        current_gm = 60  # Placeholder
-        
-        return {
-            "currentGM": current_gm,
-            "revenue": filtered_revenue,
-            "directCosts": 0
-        }
-        
-    except Exception as e:
-        app.logger.error(f"Error calculating GM for user: {e}")
-        return {"currentGM": 0, "revenue": 0, "directCosts": 0}
-
-
-@app.route('/api/gm-state')
-def get_gm_state():
-    # Remove the old FilterState logic and use BU-based filtering
-    user_bus = get_user_bus()
-    
-    # If user has no access, return minimal GM data
-    if user_bus is not None and len(user_bus) == 0:
-        return jsonify({
-            "startingGM": 0,
-            "currentGM": 0,
-            "planGM": 0,
-            "revenue": 0,
-            "directCosts": []
-        })
-    
-    # Calculate GM based on user's BU access
-    gm_data = calculate_gm_for_user(user_bus)
-    
-    return jsonify({
-        "startingGM": 60,
-        "currentGM": gm_data["currentGM"],
-        "planGM": 65,
-        "revenue": gm_data["revenue"],
-        "directCosts": [c.dict() for c in direct_costs]
-    })
-
-@app.route('/api/filter-state')
-def get_filter_state():
-    return jsonify({
-        "month": request.args.get('month', 'Quarter'),
-        "businessUnit": request.args.get('businessUnit', ''),
-        "customer": request.args.get('customer', ''),
-        "location": request.args.get('location', 'All'),
-        "billableStatus": request.args.get('billableStatus', 'All'),
-        "businessUnits": list(bu_to_customers.keys())
-    })
-
-@app.route('/api/customers/<business_unit>')
-def get_customers_by_bu(business_unit):
-    return jsonify(bu_to_customers.get(business_unit, []))
-
-@app.route('/templates/components/<template_name>.html')
-def component_template(template_name):
-    return render_template(f'components/{template_name}.html')
 
 if __name__ == '__main__':
     app.run(debug=True) 
