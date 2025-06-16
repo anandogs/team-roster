@@ -476,43 +476,7 @@
     requestAnimationFrame(updateNumber);
   }
 
-  function updateGMSummary() {
-    fetch("/api/gm-state")
-      .then((res) => res.json())
-      .then((data) => {
-        const { startingGM, currentGM, planGM, revenue } = data;
-        const progressPercentage = Math.min(100, (currentGM / planGM) * 100);
 
-        // Update revenue
-        // document.getElementById("revenue").textContent =
-        //   formatCurrency(revenue);
-
-        // Update GM values
-        document.getElementById(
-          "current-gm"
-        ).textContent = `${currentGM.toFixed(1)}%`;
-        document.getElementById(
-          "current-gm"
-        ).className = `text-lg font-bold ${getTextColor(currentGM, planGM)}`;
-        document.getElementById("plan-gm").textContent = `${planGM.toFixed(
-          1
-        )}%`;
-
-        // Update progress bar
-        document.getElementById(
-          "progress-text"
-        ).textContent = `${progressPercentage.toFixed(0)}%`;
-        document.getElementById(
-          "progress-text"
-        ).className = `text-sm font-bold ${getTextColor(
-          progressPercentage,
-          100
-        )}`;
-      });
-  }
-
-  // Update GM summary on page load
-  updateGMSummary();
   fetchGMDetails();
   document.addEventListener("alpine:init", () => {
     // Initialize after Alpine stores are ready

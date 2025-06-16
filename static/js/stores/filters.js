@@ -127,12 +127,10 @@ document.addEventListener("alpine:init", () => {
 
     // Initialization
     async init() {
-      const [filterResponse, periodResponse, customersResponse] =
-        await Promise.all([
-          fetch("/api/filter-state"),
-          fetch("/api/period"),
-          fetch("/api/customers"),
-        ]);
+      const [periodResponse, customersResponse] = await Promise.all([
+        fetch("/api/period"),
+        fetch("/api/customers"),
+      ]);
 
       const periodData = await periodResponse.json();
       const customersData = await customersResponse.json();
@@ -158,7 +156,8 @@ document.addEventListener("alpine:init", () => {
       this.selectedBillableStatus = [
         ...this.availableBillableStatus.map((s) => s.value),
       ];
-    this.selectedBusinessUnits = this.businessUnits.length > 0 ? [this.businessUnits[0]] : [];
+      this.selectedBusinessUnits =
+        this.businessUnits.length > 0 ? [this.businessUnits[0]] : [];
 
       if (periodData.QTR) {
         document.querySelector(".bg-neutral-800 .text-white").textContent =
@@ -326,8 +325,6 @@ document.addEventListener("alpine:init", () => {
       this.updateFilters();
     },
 
-
-
     updateBusinessUnitDisplay() {
       const displayElement = document.getElementById("bu-display");
       if (!displayElement) return;
@@ -338,7 +335,6 @@ document.addEventListener("alpine:init", () => {
         displayElement.textContent = this.selectedBusinessUnits[0];
       }
     },
-
 
     // Customer Methods (Enhanced)
     updateCustomerOptions() {
@@ -639,8 +635,6 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-
-
     // API Methods
     updateFilters() {
       const queryParams = new URLSearchParams({
@@ -651,13 +645,9 @@ document.addEventListener("alpine:init", () => {
         billableStatus: this.selectedBillableStatus.join(","),
       });
 
-      fetch(`/api/gm-state?${queryParams}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (typeof updateGMSummary === "function") {
-            updateGMSummary();
-          }
-        });
+      if (typeof updateFilteredGMData === "function") {
+        updateFilteredGMData();
+      }
 
       fetch(`/api/employees?${queryParams}`)
         .then((res) => res.json())
@@ -667,7 +657,6 @@ document.addEventListener("alpine:init", () => {
     },
   });
 });
-
 
 function selectCustomerWithConfirmation(customer) {
   Alpine.store("filters").selectCustomerWithConfirmation(customer);
