@@ -221,10 +221,15 @@ document.addEventListener("alpine:init", () => {
         return `${employeeName}: Removed from roster (FTE: ${oldValue} > 0)`;
       } else if (action === "ADD_EMPLOYEE") {
         return `${employeeName}: Added to roster (FTE: 0 > ${newValue})`;
+      } else if (action === "CHANGE_ODC") {
+        return `ODC changed from ${oldValue}% to ${newValue}%`;
+      } else if (action === "CHANGE_ADDITIONAL_REVENUE") {
+        return `Additional Revenue changed from $${Math.round(
+          oldValue
+        ).toLocaleString()} to $${Math.round(newValue).toLocaleString()}`;
       }
       return "";
     },
-
     clearAuditLog() {
       localStorage.removeItem("roster-audit-log");
       this.auditLogVersion++;

@@ -210,8 +210,48 @@
   let userEnteredAdditionalRevenue = window.userEnteredAdditionalRevenue;
 
   window.addEventListener("odc-changed", function (e) {
-    window.userEnteredODC = e.detail.value;
-    userEnteredODC = e.detail.value; // Keep local copy
+    userEnteredODC = e.detail.value;
+
+    // Add to audit log
+    Alpine.store("employees").addAuditEntry(
+      "CHANGE_ODC",
+      "odc_setting",
+      parseFloat(
+        document.getElementById("odc-input").getAttribute("data-original") || 0
+      ),
+      parseFloat(e.detail.value),
+      "ODC Percentage"
+    );
+
+    // Store original value for next change
+    document
+      .getElementById("odc-input")
+      .setAttribute("data-original", e.detail.value);
+
+    updateFilteredGMData();
+  });
+
+  window.addEventListener("additional-revenue-changed", function (e) {
+    userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0;
+
+    // Add to audit log
+    Alpine.store("employees").addAuditEntry(
+      "CHANGE_ADDITIONAL_REVENUE",
+      "additional_revenue_setting",
+      parseFloat(
+        document
+          .getElementById("additional-revenue-input")
+          .getAttribute("data-original") || 0
+      ),
+      userEnteredAdditionalRevenue,
+      "Additional Revenue"
+    );
+
+    // Store original value for next change
+    document
+      .getElementById("additional-revenue-input")
+      .setAttribute("data-original", userEnteredAdditionalRevenue);
+
     updateFilteredGMData();
   });
 
@@ -434,6 +474,22 @@
     const odcInput = document.getElementById("odc-input");
     if (odcInput) {
       odcInput.value = odcPerc;
+    }
+
+    // Set initial original values for tracking changes (only if not already set)
+    if (!document.getElementById("odc-input").hasAttribute("data-original")) {
+      document
+        .getElementById("odc-input")
+        .setAttribute("data-original", odcPerc);
+    }
+    if (
+      !document
+        .getElementById("additional-revenue-input")
+        .hasAttribute("data-original")
+    ) {
+      document
+        .getElementById("additional-revenue-input")
+        .setAttribute("data-original", "0");
     }
 
     // current GM

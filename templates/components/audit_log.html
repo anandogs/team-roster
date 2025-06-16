@@ -83,11 +83,17 @@
               <span
                 class="text-xs font-medium"
                 :class="entry.action === 'EDIT_FTE' ? 'text-blue-400' : 
-              entry.action === 'REMOVE_EMPLOYEE' ? 'text-red-400' : 
-              entry.action === 'ADD_EMPLOYEE' ? 'text-green-400' : 'text-gray-400'"
+        entry.action === 'REMOVE_EMPLOYEE' ? 'text-red-400' : 
+        entry.action === 'ADD_EMPLOYEE' ? 'text-green-400' : 
+        entry.action === 'CHANGE_ODC' ? 'text-purple-400' :
+        entry.action === 'CHANGE_ADDITIONAL_REVENUE' ? 'text-orange-400' :
+        'text-gray-400'"
                 x-text="entry.action === 'EDIT_FTE' ? 'FTE Updated' : 
-              entry.action === 'REMOVE_EMPLOYEE' ? 'Employee Removed' : 
-              entry.action === 'ADD_EMPLOYEE' ? 'Employee Added' : 'Unknown Action'"
+        entry.action === 'REMOVE_EMPLOYEE' ? 'Employee Removed' : 
+        entry.action === 'ADD_EMPLOYEE' ? 'Employee Added' : 
+        entry.action === 'CHANGE_ODC' ? 'ODC Changed' :
+        entry.action === 'CHANGE_ADDITIONAL_REVENUE' ? 'Revenue Added' :
+        'Unknown Action'"
               ></span>
             </div>
             <span
@@ -175,7 +181,7 @@
         const gmSummaryData = {
           additionalRevenue: window.userEnteredAdditionalRevenue || 0,
           odcPercentage: window.userEnteredODC || 0,
-          originalODC: window.originalODC || 0, 
+          originalODC: window.originalODC || 0,
           timestamp: new Date().toISOString(),
           // Add current filter context
           selectedCustomer:
