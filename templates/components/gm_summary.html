@@ -210,10 +210,14 @@
   let userEnteredAdditionalRevenue = window.userEnteredAdditionalRevenue;
   // Load persisted values on page load
   window.addEventListener("DOMContentLoaded", function () {
+    console.log("=== Page Load ODC Debug ===");
+
     const savedODC = localStorage.getItem("user-entered-odc");
     const savedRevenue = localStorage.getItem(
       "user-entered-additional-revenue"
     );
+
+    console.log("savedODC on page load:", savedODC);
 
     if (savedODC !== null) {
       userEnteredODC = parseFloat(savedODC);
@@ -243,6 +247,8 @@
   window.addEventListener("odc-changed", function (e) {
     userEnteredODC = e.detail.value;
     window.userEnteredODC = e.detail.value;
+      localStorage.setItem("user-entered-odc", e.detail.value);
+
 
     // Add to audit log
     Alpine.store("employees").addAuditEntry(
@@ -498,20 +504,31 @@
       window.originalODC = isNaN(startingODCPerc) ? 0 : startingODCPerc;
     }
 
-    if (userEnteredODC) {
+    console.log("=== ODC Debug ===");
+
+    // In updateFilteredGMData() function, replace the ODC setting logic:
+    let odcPerc;
+    const savedODC = localStorage.getItem("user-entered-odc");
+
+    console.log("savedODC from localStorage:", savedODC);
+    console.log("userEnteredODC variable:", userEnteredODC);
+    console.log("window.userEnteredODC:", window.userEnteredODC);
+
+    if (savedODC !== null) {
+      odcPerc = parseFloat(savedODC);
+    } else if (userEnteredODC) {
       odcPerc = userEnteredODC;
     } else {
       odcPerc = isNaN(startingODCPerc) ? 0 : startingODCPerc.toFixed(1);
     }
 
-    document.getElementById("starting-gm").textContent =
-      forecastedGMPercentage.toFixed(1) + "%";
-    animateNumber("starting-gm", forecastedGMPercentage, true);
-
     const odcInput = document.getElementById("odc-input");
     if (odcInput) {
       odcInput.value = odcPerc;
     }
+    document.getElementById("starting-gm").textContent =
+      forecastedGMPercentage.toFixed(1) + "%";
+    animateNumber("starting-gm", forecastedGMPercentage, true);
 
     // Set initial original values for tracking changes (only if not already set)
     if (!document.getElementById("odc-input").hasAttribute("data-original")) {

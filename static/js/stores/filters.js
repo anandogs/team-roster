@@ -25,7 +25,7 @@ document.addEventListener("alpine:init", () => {
 
     // Helper method to clear audit log and refresh
     clearAuditLogAndRefresh() {
-      localStorage.removeItem("roster-audit-log");
+      Alpine.store("employees").clearAuditLog();
 
       // Show brief success message
       window.dispatchEvent(

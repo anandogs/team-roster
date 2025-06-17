@@ -144,7 +144,7 @@
           )
         ) {
           // Clear the audit log
-          localStorage.removeItem("roster-audit-log");
+          Alpine.store("employees").clearAuditLog();
 
           // Show brief success message
           window.dispatchEvent(
