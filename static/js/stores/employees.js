@@ -232,6 +232,8 @@ document.addEventListener("alpine:init", () => {
     },
     clearAuditLog() {
       localStorage.removeItem("roster-audit-log");
+      localStorage.removeItem("user-entered-odc");
+      localStorage.removeItem("user-entered-additional-revenue");
       this.auditLogVersion++;
       window.dispatchEvent(new CustomEvent("audit-log-updated"));
     },

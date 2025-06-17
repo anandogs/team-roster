@@ -208,9 +208,41 @@
 
   let userEnteredODC = window.userEnteredODC;
   let userEnteredAdditionalRevenue = window.userEnteredAdditionalRevenue;
+  // Load persisted values on page load
+  window.addEventListener("DOMContentLoaded", function () {
+    const savedODC = localStorage.getItem("user-entered-odc");
+    const savedRevenue = localStorage.getItem(
+      "user-entered-additional-revenue"
+    );
+
+    if (savedODC !== null) {
+      userEnteredODC = parseFloat(savedODC);
+      window.userEnteredODC = userEnteredODC;
+    }
+
+    if (savedRevenue !== null) {
+      userEnteredAdditionalRevenue = parseFloat(savedRevenue);
+      window.userEnteredAdditionalRevenue = userEnteredAdditionalRevenue;
+      const revenueInput = document.getElementById("additional-revenue-input");
+      if (revenueInput) {
+        revenueInput.value = userEnteredAdditionalRevenue;
+      }
+    }
+
+    // Set ODC input after a short delay to ensure updateFilteredGMData() has run
+    setTimeout(() => {
+      if (savedODC !== null) {
+        const odcInput = document.getElementById("odc-input");
+        if (odcInput) {
+          odcInput.value = userEnteredODC;
+        }
+      }
+    }, 200);
+  });
 
   window.addEventListener("odc-changed", function (e) {
     userEnteredODC = e.detail.value;
+    window.userEnteredODC = e.detail.value;
 
     // Add to audit log
     Alpine.store("employees").addAuditEntry(
@@ -233,6 +265,11 @@
 
   window.addEventListener("additional-revenue-changed", function (e) {
     userEnteredAdditionalRevenue = parseFloat(e.detail.value) || 0;
+    window.userEnteredAdditionalRevenue = userEnteredAdditionalRevenue;
+    localStorage.setItem(
+      "user-entered-additional-revenue",
+      userEnteredAdditionalRevenue
+    );
 
     // Add to audit log
     Alpine.store("employees").addAuditEntry(
