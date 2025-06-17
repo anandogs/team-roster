@@ -355,9 +355,10 @@
                       <div
                         class="grid grid-cols-12 gap-2 text-xs font-medium text-neutral-300"
                       >
-                        <div class="col-span-6">Employee</div>
+                        <div class="col-span-4">Employee</div>
                         <div class="col-span-3">FTE</div>
                         <div class="col-span-3">Customer</div>
+                        <div class="col-span-2">Billable</div>
                       </div>
                     </div>
 
@@ -368,7 +369,7 @@
                       >
                         <div class="grid grid-cols-12 gap-2 p-3 items-center">
                           <!-- Employee Info -->
-                          <div class="col-span-6">
+                          <div class="col-span-4">
                             <div
                               class="text-sm font-medium text-white truncate"
                               x-text="employee.EmployeeName"
@@ -379,7 +380,7 @@
                             ></div>
                           </div>
 
-                          <!-- FTE Input with Enhanced Validation -->
+                          <!-- FTE Input -->
                           <div class="col-span-3">
                             <div class="relative">
                               <input
@@ -394,34 +395,18 @@
                                 :class="getFTEInputClass(employee)"
                                 class="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1"
                               />
-                              <!-- Error icon -->
-                              <template x-if="isFTEInvalid(employee)">
-                                <svg
-                                  class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  ></path>
-                                </svg>
-                              </template>
                             </div>
                           </div>
 
-                          <!-- Customer Select with Enhanced Validation -->
+                          <!-- Customer Select -->
                           <div class="col-span-3">
                             <div class="relative">
                               <select
                                 :value="getIndividualCustomer(employee)"
                                 @change="setIndividualCustomer(employee, $event.target.value)"
                                 :class="isCustomerInvalid(employee) ? 
-                                  'w-full px-2 py-1 bg-red-50 border border-red-600 text-red-900 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500' :
-                                  'w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'"
+          'w-full px-2 py-1 bg-red-50 border border-red-600 text-red-900 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500' :
+          'w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'"
                               >
                                 <template
                                   x-for="customer in availableCustomers"
@@ -433,22 +418,22 @@
                                   ></option>
                                 </template>
                               </select>
-                              <!-- Error icon for customer -->
-                              <template x-if="isCustomerInvalid(employee)">
-                                <svg
-                                  class="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  ></path>
-                                </svg>
-                              </template>
+                            </div>
+                          </div>
+
+                          <!-- Billable Select -->
+                          <div class="col-span-2">
+                            <div class="relative">
+                              <select
+                                :value="getIndividualBillable(employee)"
+                                @change="setIndividualBillable(employee, $event.target.value)"
+                                :class="isBillableInvalid(employee) ? 
+          'w-full px-2 py-1 bg-red-50 border border-red-600 text-red-900 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500' :
+          'w-full px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'"
+                              >
+                                <option value="Y">Billable</option>
+                                <option value="N">Non-Billable</option>
+                              </select>
                             </div>
                           </div>
                         </div>
@@ -483,15 +468,14 @@
                 <div
                   class="bg-neutral-700 px-4 py-3 border-b border-neutral-600"
                 >
-                  <div
-                    class="grid grid-cols-12 gap-3 text-xs font-medium text-neutral-300"
-                  >
-                    <div class="col-span-2">Band</div>
-                    <div class="col-span-3">Customer</div>
-                    <div class="col-span-2">Location</div>
-                    <div class="col-span-2">FTE</div>
-                    <div class="col-span-2">Cost</div>
-                    <div class="col-span-1">Action</div>
+                  <div class="flex gap-3 text-xs font-medium text-neutral-300">
+                    <div class="w-20">Band</div>
+                    <div class="flex-1">Customer</div>
+                    <div class="w-24">Location</div>
+                    <div class="w-24">Billable</div>
+                    <div class="w-20">FTE</div>
+                    <div class="w-20">Cost</div>
+                    <div class="w-16">Action</div>
                   </div>
                 </div>
 
@@ -500,9 +484,9 @@
                   class="divide-y divide-neutral-600 max-h-64 overflow-y-auto"
                 >
                   <template x-for="(newHire, index) in newHires" :key="index">
-                    <div class="grid grid-cols-12 gap-3 p-4 items-center">
+                    <div class="flex gap-3 p-4 items-center">
                       <!-- Band -->
-                      <div class="col-span-2">
+                      <div class="w-20">
                         <select
                           x-model="newHire.band"
                           class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -514,7 +498,7 @@
                       </div>
 
                       <!-- Customer -->
-                      <div class="col-span-3">
+                      <div class="flex-1">
                         <select
                           x-model="newHire.customer"
                           class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -532,7 +516,7 @@
                       </div>
 
                       <!-- Location -->
-                      <div class="col-span-2">
+                      <div class="w-24">
                         <select
                           x-model="newHire.location"
                           class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -541,9 +525,18 @@
                           <option value="Offshore">Offshore</option>
                         </select>
                       </div>
+                      <div class="w-24">
+                        <select
+                          x-model="newHire.billable"
+                          class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="Y">Billable</option>
+                          <option value="N">Non-Billable</option>
+                        </select>
+                      </div>
 
                       <!-- FTE -->
-                      <div class="col-span-2">
+                      <div class="w-20">
                         <input
                           type="number"
                           x-model="newHire.fte"
@@ -553,7 +546,7 @@
                           class="w-full px-2 py-1 bg-neutral-600 border border-neutral-500 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
-                      <div class="col-span-2">
+                      <div class="w-16">
                         <input
                           type="number"
                           x-model="newHire.cost"
@@ -565,7 +558,7 @@
                       </div>
 
                       <!-- Remove Button -->
-                      <div class="col-span-1">
+                      <div class="w-16">
                         <button
                           @click="removeNewHireRow(index)"
                           class="p-1 text-red-400 hover:text-red-300 transition-colors"
@@ -828,6 +821,7 @@
                 this.availableCustomers.length > 0
                   ? this.availableCustomers[0]
                   : "",
+              billable: "Y", // Default to billable
             });
           }
         } else {
@@ -883,6 +877,7 @@
                   this.availableCustomers.length > 0
                     ? this.availableCustomers[0]
                     : "",
+                billable: "Y", // Default to billable
               });
             }
           });
@@ -940,6 +935,31 @@
         };
         config.customer = value;
         this.employeeConfigs.set(employeeId, config);
+      },
+
+      getIndividualBillable(employee) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId);
+        return config ? config.billable : "Y"; // Default to billable
+      },
+
+      setIndividualBillable(employee, value) {
+        const employeeId = employee.EmployeeCode || employee.id;
+        const config = this.employeeConfigs.get(employeeId) || {
+          fte: this.defaultFTE,
+          customer:
+            this.availableCustomers.length > 0
+              ? this.availableCustomers[0]
+              : "",
+          billable: "Y",
+        };
+        config.billable = value;
+        this.employeeConfigs.set(employeeId, config);
+      },
+
+      isBillableInvalid(employee) {
+        const billable = this.getIndividualBillable(employee);
+        return !billable || (billable !== "Y" && billable !== "N");
       },
 
       // Validation methods
@@ -1043,6 +1063,7 @@
               : "",
           location: "Offshore",
           fte: 1.0,
+          billable: "Y",
           cost: null,
         });
       },
@@ -1067,6 +1088,9 @@
 
           if (!newHire.location) {
             errors.push(`Row ${rowNum}: Location selection is required`);
+          }
+          if (!newHire.billable) {
+            errors.push(`Row ${rowNum}: Billable status selection is required`);
           }
 
           const fte = parseFloat(newHire.fte);
@@ -1113,7 +1137,7 @@
               PrismCustomerGroup: selectedCustomer,
               FinalBU: derivedBU,
               Band: employee.Band,
-              BillableYN: true, // Set to true by default as requested
+              BillableYN: config?.billable === "Y", // Add this line
               Offshore_Onsite: employee.Offshore_Onsite,
               FTE: config?.fte || this.defaultFTE,
             };
@@ -1177,7 +1201,7 @@
               FinalBU:
                 this.customerToBUMapping[newHire.customer] || "Unassigned",
               Band: newHire.band,
-              BillableYN: true,
+              BillableYN: newHire.billable === "Y", // Add this line
               Offshore_Onsite: newHire.location,
               FTE: parseFloat(newHire.fte),
               customCost: newHire.cost ? parseFloat(newHire.cost) : null, // Add this line
