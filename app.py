@@ -331,6 +331,7 @@ def download_roster_analysis():
 
         # Get filter context from GM summary for better labeling
         selected_customer = gm_summary.get('selectedCustomer', 'All')
+        selected_bu = gm_summary.get('selectedBU', 'All')
         selected_month = gm_summary.get('selectedMonth', 'Quarter')
 
         total_base_revenue = 0
@@ -356,6 +357,7 @@ def download_roster_analysis():
 
         original_odc = 0
         current_odc = 0
+        bu_revenue = 0
         try:
             original_odc = float(gm_summary.get('originalODC', 0)) if gm_summary.get('originalODC') else 0
             current_odc = float(gm_summary.get('odcPercentage', 0)) if gm_summary.get('odcPercentage') else original_odc
@@ -364,24 +366,52 @@ def download_roster_analysis():
             current_odc = 0
 
         if total_base_revenue > 0:
+            if not filtered_revenue.empty:
+                temp_revenue = filtered_revenue.copy()
+                if filters.get('selectedBusinessUnits'):
+                    temp_revenue = temp_revenue[temp_revenue['BU'].isin(filters['selectedBusinessUnits'])]
+                
+                if selected_month == 'Quarter':
+                    bu_revenue = temp_revenue['Total_Revenue'].sum() * 1000000
+                else:
+                    if selected_month in ['M1', 'M2', 'M3']:
+                        month_filtered = temp_revenue[temp_revenue['Month'].str.contains(selected_month, na=False)]
+                        bu_revenue = month_filtered['Total_Revenue'].sum() * 1000000
+
             summary_data.append({
                 'Type': 'Base Revenue',
                 'Customer': selected_customer,
+                'BU': selected_bu,
                 'Month': selected_month,
                 'Amount': total_base_revenue,
-                'GM Impact': 0,
+                'Customer Revenue': total_base_revenue,
+                'BU Revenue': bu_revenue,
+                'Customer GM Impact': 0,
+                'BU GM Impact': 0,
                 'Source': 'System Data'
             })
 
+        # Ensure these are always defined before use
+        customer_total_revenue = total_base_revenue
+        bu_total_revenue = bu_revenue
+
         if additional_revenue_value > 0:
-            addl_revenue_gm_impact = (additional_revenue_value / total_revenue) if total_revenue > 0 else 0
-            print(addl_revenue_gm_impact)
+            customer_total_revenue = total_base_revenue + additional_revenue_value
+            bu_total_revenue = bu_revenue + additional_revenue_value  # BU also gets the additional revenue
+            
+            customer_gm_impact = (additional_revenue_value / customer_total_revenue) if customer_total_revenue > 0 else 0
+            bu_gm_impact = (additional_revenue_value / bu_total_revenue) if bu_total_revenue > 0 else 0
+            
             summary_data.append({
                 'Type': 'Additional Revenue',
                 'Customer': selected_customer,
+                'BU': selected_bu,
                 'Month': selected_month,
                 'Amount': additional_revenue_value,
-                'GM Impact': addl_revenue_gm_impact,
+                'Customer Revenue': additional_revenue_value,
+                'BU Revenue': additional_revenue_value,
+                'Customer GM Impact': customer_gm_impact,
+                'BU GM Impact': bu_gm_impact,
                 'Source': 'Manual Entry'
             })
 
@@ -392,22 +422,31 @@ def download_roster_analysis():
             summary_data.append({
                 'Type': 'ODC',
                 'Customer': selected_customer,
+                'BU': selected_bu,
                 'Month': selected_month,
                 'Amount': original_odc_amount,
-                'GM Impact': 0,
+                'Customer Revenue': 0,
+                'BU Revenue': 0,
+                'Customer GM Impact': 0,
+                'BU GM Impact': 0,
                 'Source': f'System Data ({original_odc:.1f}%)'
             })
 
-        if abs(current_odc - original_odc) > 0.01:  # Only show if there's a meaningful change
-            odc_gm_impact = original_odc - current_odc  # Positive means GM improvement
-            odc_amount_impact = odc_gm_impact / 100 * total_revenue if total_revenue > 0 else 0
-            print(odc_gm_impact)
+        if abs(current_odc - original_odc) > 0.01:
+            odc_gm_impact = original_odc - current_odc
+            customer_odc_amount_impact = odc_gm_impact / 100 * customer_total_revenue if customer_total_revenue > 0 else 0
+            bu_odc_amount_impact = odc_gm_impact / 100 * bu_total_revenue if bu_total_revenue > 0 else 0
+            
             summary_data.append({
                 'Type': 'ODC Change',
                 'Customer': selected_customer,
+                'BU': selected_bu,
                 'Month': selected_month,
-                'Amount': odc_amount_impact,
-                'GM Impact': odc_gm_impact / 100,
+                'Amount': customer_odc_amount_impact,  # Show customer impact as main amount
+                'Customer Revenue': customer_odc_amount_impact,
+                'BU Revenue': bu_odc_amount_impact,
+                'Customer GM Impact': odc_gm_impact / 100,
+                'BU GM Impact': odc_gm_impact / 100,
                 'Source': f'Manual Entry ({original_odc:.1f}% → {current_odc:.1f}%)'
             })
 
@@ -529,8 +568,8 @@ def get_gm_details():
     filtered_revenue = revenue[revenue['Quarter'] == quarter_formatted].reset_index(drop=True)
     filtered_plan = plan[plan['Quarter'] == quarter_formatted].reset_index(drop=True)
     filtered_plan.drop(columns=['Customer'], inplace=True)
-    filtered_plan.rename(columns={'Prism': 'Customer'}, inplace=True)
-    grouped_filtered_plan = filtered_plan.groupby(['BU', 'Customer']).sum().reset_index()
+    filtered_plan.rename(columns={'Prism': 'Customer', 'BU': 'Plan BU'}, inplace=True)
+    grouped_filtered_plan = filtered_plan.groupby(['Plan BU', 'Customer']).sum().reset_index()
     grouped_filtered_plan['PlanGM%'] = (grouped_filtered_plan['PlanRevenue'] - grouped_filtered_plan['PlanCost']) / grouped_filtered_plan['PlanRevenue']
     grouped_filtered_plan['PlanGM%'] = grouped_filtered_plan['PlanGM%'].fillna(0)
     grouped_filtered_plan.drop(columns=['PlanCost', 'Quarter', 'RAC'], inplace=True)

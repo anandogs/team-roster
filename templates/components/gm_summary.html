@@ -247,8 +247,7 @@
   window.addEventListener("odc-changed", function (e) {
     userEnteredODC = e.detail.value;
     window.userEnteredODC = e.detail.value;
-      localStorage.setItem("user-entered-odc", e.detail.value);
-
+    localStorage.setItem("user-entered-odc", e.detail.value);
 
     // Add to audit log
     Alpine.store("employees").addAuditEntry(
@@ -569,8 +568,18 @@
       ? (totalGMImpact / adjustedTotalRevenue) * 100
       : 0;
 
+    // Start with the base GM percentage (without additional revenue)
+    const baseGMPercentage = forecastedGMPercentage; // This is based on original revenue only
+
+    // Additional revenue impact is simply: additional_revenue / total_revenue
+    const additionalRevenueGMImpact =
+      userEnteredAdditionalRevenue && adjustedTotalRevenue > 0
+        ? (userEnteredAdditionalRevenue / adjustedTotalRevenue) * 100
+        : 0;
+
     let currentGMPercentage =
-      adjustedForecastedGMPercentage +
+      baseGMPercentage +
+      additionalRevenueGMImpact +
       adjustedOdcDiff -
       adjustedGmImpactPercentage;
 
