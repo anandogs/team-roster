@@ -116,6 +116,8 @@ document.addEventListener("alpine:init", () => {
       // Get additional employee details based on action type
       if (action === "ADD_EMPLOYEE" && employeeData) {
         // For both existing employees and new hires
+        gmCalculationData.customCost = employeeData.customCost || null;
+
         gmCalculationData.employeeCode =
           employeeData.EmployeeCode || employeeData.id;
         gmCalculationData.band = employeeData.Band;

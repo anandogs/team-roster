@@ -774,22 +774,29 @@ def calculate_gm_impact():
             # Calculate GM impact
             cpc_used = 0
             lookup_method = ""
-            
+
             if gmData.get('isNewHire', False):
-                # For new hires, use band + location average CPC
-                band = gmData.get('band', '')
-                location = gmData.get('location', '')
-                lookup_key = f"{band}_{location}"
+                # Check if custom cost is provided
+                custom_cost = gmData.get('customCost')
                 
-                
-                if lookup_key in band_location_cpc_lookup:
-                    cpc_used = band_location_cpc_lookup[lookup_key]
-                    lookup_method = f"band_location_avg ({lookup_key})"
+                if custom_cost is not None and custom_cost > 0:
+                    # Use the provided custom cost as CPC
+                    cpc_used = float(custom_cost)
+                    lookup_method = f"custom_cost ({custom_cost})"
                 else:
-                    # Use overall average as fallback
-                    if band_location_cpc_lookup:
-                        cpc_used = sum(band_location_cpc_lookup.values()) / len(band_location_cpc_lookup)
-                        lookup_method = "fallback_avg"
+                    # Use band + location average CPC (existing logic)
+                    band = gmData.get('band', '')
+                    location = gmData.get('location', '')
+                    lookup_key = f"{band}_{location}"
+                    
+                    if lookup_key in band_location_cpc_lookup:
+                        cpc_used = band_location_cpc_lookup[lookup_key]
+                        lookup_method = f"band_location_avg ({lookup_key})"
+                    else:
+                        # Use overall average as fallback
+                        if band_location_cpc_lookup:
+                            cpc_used = sum(band_location_cpc_lookup.values()) / len(band_location_cpc_lookup)
+                            lookup_method = "fallback_avg"
                     
             else:
                 # For existing employees, use individual CPC
