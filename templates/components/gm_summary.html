@@ -210,14 +210,12 @@
   let userEnteredAdditionalRevenue = window.userEnteredAdditionalRevenue;
   // Load persisted values on page load
   window.addEventListener("DOMContentLoaded", function () {
-    console.log("=== Page Load ODC Debug ===");
 
     const savedODC = localStorage.getItem("user-entered-odc");
     const savedRevenue = localStorage.getItem(
       "user-entered-additional-revenue"
     );
 
-    console.log("savedODC on page load:", savedODC);
 
     if (savedODC !== null) {
       userEnteredODC = parseFloat(savedODC);
@@ -445,10 +443,6 @@
         ? gmImpactFromAuditLog
         : await calculateTotalGMImpact();
 
-    if (filters.month === "Quarter") {
-      totalGMImpact = totalGMImpact * 3;
-    }
-
     const totalRevenue =
       filteredData.reduce((sum, item) => sum + (item.Total_Revenue || 0), 0) *
       1000000;
@@ -488,30 +482,24 @@
       (sum, item) => sum + (item.AllocationCost || 0),
       0
     );
+
+    window.allocationCost = allocationCost;
     const odc =
       filteredData.reduce(
         (sum, item) => sum + (item.OtherDirectCosts || 0),
         0
       ) * 1000000;
-    const forecastedGM = totalRevenue - allocationCost;
-    const forecastedGMPercentage = (forecastedGM / totalRevenue) * 100;
-
-    // Set ODC input value after odc is calculated
 
     const startingODCPerc = (odc / totalRevenue) * 100;
     if (typeof window.originalODC === "undefined" || window.originalODC === 0) {
       window.originalODC = isNaN(startingODCPerc) ? 0 : startingODCPerc;
     }
 
-    console.log("=== ODC Debug ===");
+    const forecastedGM = totalRevenue - allocationCost;
+    const forecastedGMPercentage = (forecastedGM / totalRevenue) * 100 - startingODCPerc
 
-    // In updateFilteredGMData() function, replace the ODC setting logic:
     let odcPerc;
     const savedODC = localStorage.getItem("user-entered-odc");
-
-    console.log("savedODC from localStorage:", savedODC);
-    console.log("userEnteredODC variable:", userEnteredODC);
-    console.log("window.userEnteredODC:", window.userEnteredODC);
 
     if (savedODC !== null) {
       odcPerc = parseFloat(savedODC);
@@ -567,6 +555,9 @@
     const adjustedGmImpactPercentage = totalGMImpact
       ? (totalGMImpact / adjustedTotalRevenue) * 100
       : 0;
+    console.log(totalGMImpact)
+    console.log(adjustedGmImpactPercentage)
+
 
     // Start with the base GM percentage (without additional revenue)
     const baseGMPercentage = forecastedGMPercentage; // This is based on original revenue only
@@ -580,7 +571,7 @@
     let currentGMPercentage =
       baseGMPercentage +
       additionalRevenueGMImpact +
-      adjustedOdcDiff -
+      odcDiff -
       adjustedGmImpactPercentage;
 
     document.getElementById("current-gm").textContent =

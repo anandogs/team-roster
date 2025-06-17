@@ -2,7 +2,6 @@ import os
 import io
 from azure.identity import AzureCliCredential, ManagedIdentityCredential
 from azure.storage.blob import BlobServiceClient
-
 import logging
 import json
 from flask import Flask, render_template, jsonify, request, send_file
@@ -239,10 +238,7 @@ def load_employees(bu_filter: list | None = None):
 
 
 @app.route('/api/download-roster-analysis', methods=['POST'])
-def download_roster_analysis():
-    import io
-    from datetime import datetime
-    
+def download_roster_analysis():    
     # Get audit log, filters, and GM summary from POST data
     audit_log_data = request.form.get('audit_log', '[]')
     filters_data = request.form.get('filters', '{}')
@@ -276,21 +272,24 @@ def download_roster_analysis():
     # Apply audit log to get current state
     roster_data = apply_audit_log_to_dataframe(filtered_df, audit_log)
     
+    filtered_revenue = pd.DataFrame()
+    filtered_cost = pd.DataFrame()
+    cost_df = pd.DataFrame()  # Ensure cost_df is always defined
+
     try:
         prism_df = get_cached_prism_data()
+        cost_df = get_cached_data()
         
-        if not prism_df.empty:
-            # Filter revenue data same way as in get_gm_details()
-            quarter_formatted = 'Q1'  # Extract from max_quarter if needed
-            filtered_revenue = prism_df[prism_df['Quarter'] == quarter_formatted].reset_index(drop=True)
-            filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
-            
-        else:
-            filtered_revenue = pd.DataFrame()
+        quarter_formatted = 'Q1'  # Extract from max_quarter if needed
+        filtered_revenue = prism_df[prism_df['Quarter'] == quarter_formatted].reset_index(drop=True)
+        filtered_revenue.rename(columns={'Title': 'Customer'}, inplace=True)
+        selected_month = gm_summary.get('selectedMonth', 'Quarter')
+
             
     except Exception as e:
         print(f"Error loading revenue data: {e}")
         filtered_revenue = pd.DataFrame()
+        cost_df = pd.DataFrame()
     
     # Create Excel file
     output = io.BytesIO()
@@ -319,7 +318,7 @@ def download_roster_analysis():
                     'Old Value': entry.get('oldValue', ''),
                     'New Value': entry.get('newValue', ''),
                     'Description': entry.get('description', ''),
-                    'GM Impact': entry.get('gmImpact', {}).get('costImpact', 0) if entry.get('gmImpact') else 0
+                    'Cost Impact': entry.get('gmImpact', {}).get('costImpact', 0) if entry.get('gmImpact') else 0
                 })
             changes_df = pd.DataFrame(changes_data)
             changes_df.to_excel(writer, sheet_name='Changes Log', index=False)
@@ -386,14 +385,67 @@ def download_roster_analysis():
                 'Amount': total_base_revenue,
                 'Customer Revenue': total_base_revenue,
                 'BU Revenue': bu_revenue,
-                'Customer GM Impact': 0,
-                'BU GM Impact': 0,
+                'Customer GM': 1,
+                'BU GM': 1,
                 'Source': 'System Data'
             })
 
         # Ensure these are always defined before use
         customer_total_revenue = total_base_revenue
         bu_total_revenue = bu_revenue
+
+        filtered_df = cost_df.loc[cost_df['FinalBU'] == selected_bu].reset_index(drop=True)
+        customer_df = filtered_df.loc[filtered_df['PrismCustomerGroup'] == selected_customer].reset_index(drop=True)
+
+        allocation_cost_col = 'AllocationCost_QTR'
+        if selected_month in ['M1', 'M2', 'M3']:
+            allocation_cost_col = f'AllocationCost_{selected_month}'
+        bu_allocation_cost = filtered_df[allocation_cost_col].sum()
+        customer_allocation_cost = customer_df[allocation_cost_col].sum()
+
+
+        summary_data.append({
+            'Type': 'Allocation Cost',
+            'Customer': selected_customer,
+            'BU': selected_bu, 
+            'Month': selected_month,
+            'Amount': - customer_allocation_cost,
+            'Customer Revenue': 0,
+            'BU Revenue': 0,
+            'Customer GM': -customer_allocation_cost  / customer_total_revenue,
+            'BU GM': -bu_allocation_cost / bu_total_revenue,
+            'Source': 'System Data'
+        })
+        
+        original_odc_amount = 0  # Ensure variable is always defined
+        if original_odc > 0:
+            original_odc_amount = original_odc / 100  * total_revenue if total_revenue > 0 else 0
+            summary_data.append({
+                'Type': 'ODC',
+                'Customer': selected_customer,
+                'BU': selected_bu,
+                'Month': selected_month,
+                'Amount': - original_odc_amount,
+                'Customer Revenue': 0,
+                'BU Revenue': 0,
+                'Customer GM': - original_odc / 100,
+                'BU GM': -original_odc / 100,
+                'Source': f'System Data ({original_odc:.1f}%)'
+            })
+
+        # Starting GM
+        summary_data.append({
+            'Type': 'Starting GM',
+            'Customer': selected_customer,
+            'BU': selected_bu,
+            'Month': selected_month,
+            'Amount': total_base_revenue - customer_allocation_cost - original_odc_amount,
+            'Customer Revenue': 0,
+            'BU Revenue': 0,
+            'Customer GM': 1 - customer_allocation_cost  / customer_total_revenue - original_odc / 100,
+            'BU GM': 1 - bu_allocation_cost / bu_total_revenue - original_odc / 100,
+            'Source': 'System Data'
+        })
 
         if additional_revenue_value > 0:
             customer_total_revenue = total_base_revenue + additional_revenue_value
@@ -410,44 +462,57 @@ def download_roster_analysis():
                 'Amount': additional_revenue_value,
                 'Customer Revenue': additional_revenue_value,
                 'BU Revenue': additional_revenue_value,
-                'Customer GM Impact': customer_gm_impact,
-                'BU GM Impact': bu_gm_impact,
+                'Customer GM': customer_gm_impact,
+                'BU GM': bu_gm_impact,
                 'Source': 'Manual Entry'
             })
 
     
-        if original_odc > 0:
-            original_odc_amount = original_odc / 100  * total_revenue if total_revenue > 0 else 0
-            print(original_odc)
-            summary_data.append({
-                'Type': 'ODC',
-                'Customer': selected_customer,
-                'BU': selected_bu,
-                'Month': selected_month,
-                'Amount': original_odc_amount,
-                'Customer Revenue': 0,
-                'BU Revenue': 0,
-                'Customer GM Impact': 0,
-                'BU GM Impact': 0,
-                'Source': f'System Data ({original_odc:.1f}%)'
-            })
 
         if abs(current_odc - original_odc) > 0.01:
             odc_gm_impact = original_odc - current_odc
-            customer_odc_amount_impact = odc_gm_impact / 100 * customer_total_revenue if customer_total_revenue > 0 else 0
-            bu_odc_amount_impact = odc_gm_impact / 100 * bu_total_revenue if bu_total_revenue > 0 else 0
+            customer_odc_amount_impact =  odc_gm_impact / 100 * customer_total_revenue if customer_total_revenue > 0 else 0
             
             summary_data.append({
                 'Type': 'ODC Change',
                 'Customer': selected_customer,
                 'BU': selected_bu,
                 'Month': selected_month,
-                'Amount': customer_odc_amount_impact,  # Show customer impact as main amount
-                'Customer Revenue': customer_odc_amount_impact,
-                'BU Revenue': bu_odc_amount_impact,
-                'Customer GM Impact': odc_gm_impact / 100,
-                'BU GM Impact': odc_gm_impact / 100,
+                'Amount': customer_odc_amount_impact, 
+                'Customer Revenue': 0,
+                'BU Revenue': 0,
+                'Customer GM': customer_odc_amount_impact / customer_total_revenue,
+                'BU GM': customer_odc_amount_impact / bu_total_revenue,
                 'Source': f'Manual Entry ({original_odc:.1f}% → {current_odc:.1f}%)'
+            })
+
+        # Calculate total GM impact from FTE changes
+        total_fte_impact = 0
+        if audit_log:
+            for entry in audit_log:
+                if entry.get('gmImpact') and entry.get('gmImpact', {}).get('costImpact'):
+                    total_fte_impact += entry['gmImpact']['costImpact']
+
+        if abs(total_fte_impact) > 0.01:  # Only show if there's a meaningful impact
+            # Get BU from the selected customer
+            selected_bu = None
+            if filters.get('selectedCustomers') and len(filters['selectedCustomers']) == 1:
+                # Find the BU for this customer from the filtered revenue data
+                customer_data = filtered_revenue[filtered_revenue['Customer'] == filters['selectedCustomers'][0]]
+                if not customer_data.empty:
+                    selected_bu = customer_data.iloc[0]['BU']
+            
+            summary_data.append({
+                'Type': 'FTE Change Impact',
+                'Customer': selected_customer,
+                'BU': selected_bu,
+                'Month': selected_month,
+                'Amount': -total_fte_impact,
+                'BU Revenue': 0,
+                'Customer Revenue': 0,
+                'Customer GM': -total_fte_impact / customer_total_revenue,
+                'BU GM': -total_fte_impact / bu_total_revenue,
+                'Source': f'Roster Changes ({len([e for e in audit_log if e.get("gmImpact")])} entries)'
             })
 
         if summary_data:
