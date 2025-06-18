@@ -57,6 +57,9 @@ def load_prism_data():
         prism_download_stream = prism_blob_client.download_blob()
         prism_content = io.BytesIO(prism_download_stream.readall())
         prism_df = pd.read_csv(prism_content, low_memory=False)
+
+        # rename Microsoft GlobalAct to MS Global
+        prism_df['BU'] = prism_df['BU'].replace('Microsoft GlobalAct', 'MS Global') 
         
         return prism_df
     except Exception as e:
