@@ -307,23 +307,6 @@ def download_roster_analysis():
                                 'Location', 'Billable', 'Current FTE']
         allocations_df.to_excel(writer, sheet_name='Current Allocations', index=False)
         
-        # Sheet 2: Changes Log
-        if audit_log:
-            changes_data = []
-            for entry in audit_log:
-                changes_data.append({
-                    'Timestamp': entry.get('timestamp', ''),
-                    'Action': entry.get('action', ''),
-                    'Employee Name': entry.get('employeeName', ''),
-                    'Old Value': entry.get('oldValue', ''),
-                    'New Value': entry.get('newValue', ''),
-                    'Description': entry.get('description', ''),
-                    'Cost Impact': entry.get('gmImpact', {}).get('costImpact', 0) if entry.get('gmImpact') else 0
-                })
-            changes_df = pd.DataFrame(changes_data)
-            changes_df.to_excel(writer, sheet_name='Changes Log', index=False)
-        else:
-            pd.DataFrame([{'Message': 'No changes recorded'}]).to_excel(writer, sheet_name='Changes Log', index=False)
         
         # Sheet 3: Revenue Summary
         summary_data = []
@@ -518,8 +501,43 @@ def download_roster_analysis():
         if summary_data:
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name='Summary', index=False)
+            
+            # Get the worksheet to apply formatting
+            worksheet = writer.sheets['Summary']
+            
+            # Find the column indices for Customer GM and BU GM
+            cols = summary_df.columns.tolist()
+            customer_gm_col = cols.index('Customer GM') + 1 if 'Customer GM' in cols else None  # +1 for Excel 1-based indexing
+            bu_gm_col = cols.index('BU GM') + 1 if 'BU GM' in cols else None
+            
+            # Apply percentage formatting to the data rows (skip header row)
+            for row in range(2, len(summary_df) + 2):  # Start from row 2 (after header)
+                if customer_gm_col:
+                    worksheet.cell(row=row, column=customer_gm_col).number_format = '0.00%'
+                if bu_gm_col:
+                    worksheet.cell(row=row, column=bu_gm_col).number_format = '0.00%'
         else:
             pd.DataFrame([{'Message': 'No summary data available'}]).to_excel(writer, sheet_name='Summary', index=False)
+
+
+        # Sheet 2: Changes Log
+        if audit_log:
+            changes_data = []
+            for entry in audit_log:
+                changes_data.append({
+                    'Timestamp': entry.get('timestamp', ''),
+                    'Action': entry.get('action', ''),
+                    'Employee Name': entry.get('employeeName', ''),
+                    'Old Value': entry.get('oldValue', ''),
+                    'New Value': entry.get('newValue', ''),
+                    'Description': entry.get('description', ''),
+                    'Cost Impact': entry.get('gmImpact', {}).get('costImpact', 0) if entry.get('gmImpact') else 0
+                })
+            changes_df = pd.DataFrame(changes_data)
+            changes_df.to_excel(writer, sheet_name='DEBUG_changelog', index=False)
+        else:
+            pd.DataFrame([{'Message': 'No changes recorded'}]).to_excel(writer, sheet_name='DEBUG_changelog', index=False)
+
     
     output.seek(0)
     timestamp = datetime.now().strftime('%Y-%m-%d')
